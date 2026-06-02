@@ -12,10 +12,16 @@ import { AuthService } from '../../core/services/auth.service';
   imports: [CommonModule, RouterModule, MatIconModule, MatButtonModule],
   template: `
     <div class="dashboard">
-      <div class="page-header animate-fade-in-up">
-        <div>
-          <h1>Dashboard</h1>
-          <p>Bienvenido, {{ auth.userName() }} 👋</p>
+      <!-- Hero Header -->
+      <div class="hero-header animate-fade-in-up">
+        <div class="hero-text">
+          <h1>{{ greeting() }}, {{ auth.userName() }} 👋</h1>
+          <p>¿Cómo va tu inventario?</p>
+        </div>
+        <div class="hero-decoration">
+          <div class="hero-circle c1"></div>
+          <div class="hero-circle c2"></div>
+          <div class="hero-circle c3"></div>
         </div>
       </div>
 
@@ -62,6 +68,132 @@ import { AuthService } from '../../core/services/auth.service';
         </div>
       </div>
 
+      <!-- Category Tabs Section -->
+      <div class="category-section animate-fade-in-up">
+        <div class="category-tabs">
+          <div class="cat-tab cat-inventario" [class.active]="activeTab === 'inventario'" (click)="activeTab = 'inventario'">
+            <mat-icon>inventory_2</mat-icon>
+            <span>Inventario</span>
+            <button class="cat-tab-action" routerLink="/inventory" (click)="$event.stopPropagation()">
+              <mat-icon>add</mat-icon>
+            </button>
+          </div>
+          <div class="cat-tab cat-recetas" [class.active]="activeTab === 'recetas'" (click)="activeTab = 'recetas'">
+            <mat-icon>restaurant</mat-icon>
+            <span>Recetas</span>
+            <button class="cat-tab-action" routerLink="/recipes" (click)="$event.stopPropagation()">
+              <mat-icon>add</mat-icon>
+            </button>
+          </div>
+          <div class="cat-tab cat-precios" [class.active]="activeTab === 'precios'" (click)="activeTab = 'precios'">
+            <mat-icon>attach_money</mat-icon>
+            <span>Precios</span>
+            <button class="cat-tab-action" routerLink="/prices" (click)="$event.stopPropagation()">
+              <mat-icon>add</mat-icon>
+            </button>
+          </div>
+        </div>
+        <div class="category-content">
+          @if (activeTab === 'inventario') {
+            <div class="cat-links">
+              <a routerLink="/inventory" class="cat-link" id="link-products">
+                <span>Productos</span><mat-icon>chevron_right</mat-icon>
+              </a>
+              <a routerLink="/inventory" class="cat-link" id="link-reorder">
+                <span>Stock bajo</span><mat-icon>chevron_right</mat-icon>
+              </a>
+              <a routerLink="/inventory" class="cat-link" id="link-current-stock">
+                <span>Stock actual</span><mat-icon>chevron_right</mat-icon>
+              </a>
+            </div>
+            <div class="cat-illustration">
+              <div class="illus-boxes">
+                <div class="illus-box b1">📦</div>
+                <div class="illus-box b2">🍗</div>
+                <div class="illus-box b3">🧂</div>
+              </div>
+            </div>
+          }
+          @if (activeTab === 'recetas') {
+            <div class="cat-links">
+              <a routerLink="/recipes" class="cat-link" id="link-recipes">
+                <span>Ver recetas</span><mat-icon>chevron_right</mat-icon>
+              </a>
+              <a routerLink="/recipes" class="cat-link" id="link-prepare">
+                <span>Preparar receta</span><mat-icon>chevron_right</mat-icon>
+              </a>
+              <a routerLink="/recipes" class="cat-link" id="link-history">
+                <span>Historial</span><mat-icon>chevron_right</mat-icon>
+              </a>
+            </div>
+            <div class="cat-illustration">
+              <div class="illus-boxes">
+                <div class="illus-box b1">🍳</div>
+                <div class="illus-box b2">🍗</div>
+                <div class="illus-box b3">🔥</div>
+              </div>
+            </div>
+          }
+          @if (activeTab === 'precios') {
+            <div class="cat-links">
+              <a routerLink="/prices" class="cat-link" id="link-price-register">
+                <span>Registro de precios</span><mat-icon>chevron_right</mat-icon>
+              </a>
+              <a routerLink="/prices" class="cat-link" id="link-price-history">
+                <span>Historial</span><mat-icon>chevron_right</mat-icon>
+              </a>
+              <a routerLink="/reports" class="cat-link" id="link-trends">
+                <span>Tendencias</span><mat-icon>chevron_right</mat-icon>
+              </a>
+            </div>
+            <div class="cat-illustration">
+              <div class="illus-boxes">
+                <div class="illus-box b1">📈</div>
+                <div class="illus-box b2">💰</div>
+                <div class="illus-box b3">📊</div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Reports Section -->
+      <div class="reports-section animate-fade-in-up">
+        <div class="reports-header">
+          <mat-icon>assessment</mat-icon>
+          <span>Reportes</span>
+        </div>
+        <div class="reports-content">
+          <div class="reports-links">
+            <a routerLink="/reports" class="report-link" id="link-recent-reports">
+              <span>Generados recientemente</span><mat-icon>chevron_right</mat-icon>
+            </a>
+            <a routerLink="/reports" class="report-link" id="link-stock-levels">
+              <span>Niveles de stock</span><mat-icon>chevron_right</mat-icon>
+            </a>
+            <a routerLink="/reports" class="report-link" id="link-price-reports">
+              <span>Historial de precios</span><mat-icon>chevron_right</mat-icon>
+            </a>
+            <a routerLink="/reports" class="report-link" id="link-preps-report">
+              <span>Preparaciones</span><mat-icon>chevron_right</mat-icon>
+            </a>
+            <a routerLink="/reports" class="report-link" id="link-audit-report">
+              <span>Auditoría</span><mat-icon>chevron_right</mat-icon>
+            </a>
+          </div>
+          <div class="reports-illustration">
+            <div class="report-chart-illus">
+              <div class="chart-bar bar1"></div>
+              <div class="chart-bar bar2"></div>
+              <div class="chart-bar bar3"></div>
+              <div class="chart-bar bar4"></div>
+              <div class="chart-bar bar5"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Grid -->
       <div class="dashboard-grid">
         <!-- Low Stock Products -->
         <div class="dashboard-card animate-fade-in-up" id="low-stock-panel">
@@ -102,56 +234,27 @@ import { AuthService } from '../../core/services/auth.service';
           </div>
         </div>
 
-        <!-- Recent Preparations -->
-        <div class="dashboard-card animate-fade-in-up" id="recent-preps-panel">
-          <div class="card-header">
-            <h3><mat-icon class="text-yellow">restaurant</mat-icon> Preparaciones Recientes</h3>
-            <a routerLink="/recipes" class="card-link">Ver todo →</a>
-          </div>
-          <div class="card-body">
-            @if (recentLogs().length === 0) {
-              <div class="empty-state">
-                <mat-icon class="text-muted">restaurant</mat-icon>
-                <p>No hay preparaciones recientes</p>
-              </div>
-            } @else {
-              @for (log of recentLogs(); track log.id) {
-                <div class="prep-item">
-                  <div class="prep-icon">🍗</div>
-                  <div class="prep-info">
-                    <span class="prep-name">{{ log.recipeName }}</span>
-                    <span class="prep-details">
-                      {{ log.preparedBy }} · {{ formatDate(log.preparedAt) }}
-                    </span>
-                  </div>
-                  <div class="prep-qty">x{{ log.quantity }}</div>
-                </div>
-              }
-            }
-          </div>
-        </div>
-
         <!-- Quick Actions -->
         <div class="dashboard-card animate-fade-in-up" id="quick-actions-panel">
           <div class="card-header">
             <h3><mat-icon class="text-yellow">flash_on</mat-icon> Acciones Rápidas</h3>
           </div>
           <div class="card-body quick-actions-body">
-            <a routerLink="/inventory" class="quick-action">
+            <a routerLink="/inventory" class="quick-action" id="qa-new-product">
               <mat-icon>add_circle</mat-icon>
               <span>Nuevo Producto</span>
             </a>
-            <a routerLink="/recipes" class="quick-action">
+            <a routerLink="/recipes" class="quick-action" id="qa-prepare">
               <mat-icon>restaurant</mat-icon>
               <span>Preparar Receta</span>
             </a>
-            <a routerLink="/prices" class="quick-action">
+            <a routerLink="/prices" class="quick-action" id="qa-price">
               <mat-icon>trending_up</mat-icon>
               <span>Registrar Precio</span>
             </a>
-            <a routerLink="/alerts" class="quick-action">
-              <mat-icon>notifications</mat-icon>
-              <span>Ver Alertas</span>
+            <a routerLink="/reports" class="quick-action" id="qa-reports">
+              <mat-icon>assessment</mat-icon>
+              <span>Ver Reportes</span>
             </a>
           </div>
         </div>
@@ -164,19 +267,69 @@ import { AuthService } from '../../core/services/auth.service';
       margin: 0 auto;
     }
 
-    .page-header {
+    /* --- Hero Header --- */
+    .hero-header {
+      position: relative;
+      background: linear-gradient(135deg, rgba(22, 33, 62, 0.9), rgba(26, 26, 46, 0.7));
+      border: 1px solid var(--pc-border);
+      border-radius: var(--pc-radius-xl);
+      padding: 32px 36px;
       margin-bottom: 28px;
+      overflow: hidden;
     }
 
-    .page-header h1 {
+    .hero-text h1 {
       font-family: var(--pc-font-heading);
-      font-size: 1.8rem;
-      margin-bottom: 4px;
+      font-size: 1.9rem;
+      margin-bottom: 6px;
+      position: relative;
+      z-index: 1;
     }
 
-    .page-header p {
+    .hero-text p {
       color: var(--pc-text-muted);
-      font-size: 0.95rem;
+      font-size: 1rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-decoration {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 300px;
+      pointer-events: none;
+    }
+
+    .hero-circle {
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0.06;
+    }
+
+    .hero-circle.c1 {
+      width: 200px;
+      height: 200px;
+      background: var(--pc-yellow);
+      right: -40px;
+      top: -40px;
+    }
+
+    .hero-circle.c2 {
+      width: 120px;
+      height: 120px;
+      background: var(--pc-yellow);
+      right: 100px;
+      bottom: -20px;
+    }
+
+    .hero-circle.c3 {
+      width: 80px;
+      height: 80px;
+      background: var(--pc-red);
+      right: 60px;
+      top: 10px;
     }
 
     /* --- KPI Grid --- */
@@ -243,6 +396,286 @@ import { AuthService } from '../../core/services/auth.service';
       font-size: 0.8rem;
       color: var(--pc-text-muted);
       margin-top: 4px;
+    }
+
+    /* --- Category Section --- */
+    .category-section {
+      background: linear-gradient(135deg, rgba(22, 33, 62, 0.7), rgba(26, 26, 46, 0.5));
+      border: 1px solid var(--pc-border);
+      border-radius: var(--pc-radius-lg);
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .category-tabs {
+      display: flex;
+    }
+
+    .cat-tab {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 24px;
+      cursor: pointer;
+      transition: all var(--pc-transition-normal);
+      position: relative;
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--pc-text-secondary);
+      border-bottom: 3px solid transparent;
+    }
+
+    .cat-tab:not(:last-child) {
+      border-right: 1px solid var(--pc-border);
+    }
+
+    .cat-tab mat-icon {
+      font-size: 22px;
+      width: 22px;
+      height: 22px;
+    }
+
+    .cat-tab-action {
+      margin-left: auto;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.06);
+      color: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all var(--pc-transition-fast);
+    }
+
+    .cat-tab-action mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    .cat-tab-action:hover {
+      background: rgba(255, 255, 255, 0.15);
+      transform: scale(1.1);
+    }
+
+    /* Inventario Tab */
+    .cat-inventario.active {
+      background: linear-gradient(135deg, rgba(242, 201, 76, 0.12), rgba(201, 162, 39, 0.06));
+      color: var(--pc-yellow);
+      border-bottom-color: var(--pc-yellow);
+    }
+
+    .cat-inventario:hover:not(.active) { background: rgba(242, 201, 76, 0.04); }
+
+    /* Recetas Tab */
+    .cat-recetas.active {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(5, 150, 105, 0.06));
+      color: #10B981;
+      border-bottom-color: #10B981;
+    }
+
+    .cat-recetas:hover:not(.active) { background: rgba(16, 185, 129, 0.04); }
+
+    /* Precios Tab */
+    .cat-precios.active {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(37, 99, 235, 0.06));
+      color: #3B82F6;
+      border-bottom-color: #3B82F6;
+    }
+
+    .cat-precios:hover:not(.active) { background: rgba(59, 130, 246, 0.04); }
+
+    .category-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      min-height: 160px;
+    }
+
+    .cat-links {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+    }
+
+    .cat-link {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-radius: var(--pc-radius-sm);
+      color: var(--pc-text-secondary);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: all var(--pc-transition-fast);
+      max-width: 300px;
+    }
+
+    .cat-link:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--pc-text-primary);
+      padding-left: 20px;
+    }
+
+    .cat-link mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      opacity: 0.5;
+      transition: opacity var(--pc-transition-fast);
+    }
+
+    .cat-link:hover mat-icon { opacity: 1; }
+
+    /* Illustration */
+    .cat-illustration {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 24px;
+    }
+
+    .illus-boxes {
+      display: flex;
+      gap: 8px;
+      transform: perspective(400px) rotateY(-8deg);
+    }
+
+    .illus-box {
+      width: 64px;
+      height: 64px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--pc-border);
+      border-radius: var(--pc-radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    .illus-box.b1 { animation-delay: 0s; }
+    .illus-box.b2 { animation-delay: 0.4s; }
+    .illus-box.b3 { animation-delay: 0.8s; }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    /* --- Reports Section --- */
+    .reports-section {
+      border: 1px solid var(--pc-border);
+      border-radius: var(--pc-radius-lg);
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .reports-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 24px;
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.25), rgba(91, 33, 182, 0.15));
+      font-size: 1.05rem;
+      font-weight: 700;
+      font-family: var(--pc-font-heading);
+      color: #E0D4FC;
+    }
+
+    .reports-header mat-icon {
+      font-size: 22px;
+      width: 22px;
+      height: 22px;
+      color: #C4B5FD;
+    }
+
+    .reports-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(91, 33, 182, 0.04));
+    }
+
+    .reports-links {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px 24px;
+      flex: 1;
+    }
+
+    .report-link {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-radius: var(--pc-radius-sm);
+      color: var(--pc-text-secondary);
+      text-decoration: none;
+      font-size: 0.88rem;
+      font-weight: 500;
+      transition: all var(--pc-transition-fast);
+    }
+
+    .report-link:hover {
+      background: rgba(124, 58, 237, 0.1);
+      color: #C4B5FD;
+      padding-left: 16px;
+    }
+
+    .report-link mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      opacity: 0.4;
+    }
+
+    .report-link:hover mat-icon { opacity: 1; }
+
+    /* Chart Illustration */
+    .reports-illustration {
+      padding: 0 24px;
+    }
+
+    .report-chart-illus {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      height: 80px;
+    }
+
+    .chart-bar {
+      width: 16px;
+      border-radius: 4px 4px 0 0;
+      animation: growBar 1s ease-out forwards;
+      opacity: 0;
+    }
+
+    .bar1 { background: rgba(196, 181, 253, 0.3); height: 40%; animation-delay: 0.1s; }
+    .bar2 { background: rgba(196, 181, 253, 0.4); height: 65%; animation-delay: 0.2s; }
+    .bar3 { background: rgba(196, 181, 253, 0.5); height: 45%; animation-delay: 0.3s; }
+    .bar4 { background: rgba(196, 181, 253, 0.6); height: 80%; animation-delay: 0.4s; }
+    .bar5 { background: rgba(196, 181, 253, 0.7); height: 55%; animation-delay: 0.5s; }
+
+    @keyframes growBar {
+      from {
+        opacity: 0;
+        transform: scaleY(0);
+        transform-origin: bottom;
+      }
+      to {
+        opacity: 1;
+        transform: scaleY(1);
+        transform-origin: bottom;
+      }
     }
 
     /* --- Dashboard Grid --- */
@@ -363,56 +796,6 @@ import { AuthService } from '../../core/services/auth.service';
       font-weight: 600;
     }
 
-    /* --- Prep Items --- */
-    .prep-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 0;
-      border-bottom: 1px solid var(--pc-border);
-    }
-
-    .prep-item:last-child {
-      border-bottom: none;
-    }
-
-    .prep-icon {
-      font-size: 24px;
-      width: 36px;
-      height: 36px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(242, 201, 76, 0.1);
-      border-radius: var(--pc-radius-sm);
-      flex-shrink: 0;
-    }
-
-    .prep-info {
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-    }
-
-    .prep-name {
-      font-weight: 600;
-      font-size: 0.88rem;
-    }
-
-    .prep-details {
-      font-size: 0.75rem;
-      color: var(--pc-text-muted);
-    }
-
-    .prep-qty {
-      font-weight: 700;
-      font-size: 0.9rem;
-      color: var(--pc-yellow);
-      padding: 4px 10px;
-      background: rgba(242, 201, 76, 0.1);
-      border-radius: var(--pc-radius-sm);
-    }
-
     /* --- Quick Actions --- */
     .quick-actions-body {
       display: grid;
@@ -483,20 +866,59 @@ import { AuthService } from '../../core/services/auth.service';
       .kpi-grid {
         grid-template-columns: repeat(2, 1fr);
       }
+
+      .category-tabs {
+        flex-direction: column;
+      }
+
+      .cat-tab:not(:last-child) {
+        border-right: none;
+        border-bottom: 1px solid var(--pc-border);
+      }
+
+      .category-content {
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .cat-illustration { display: none; }
+
+      .reports-content {
+        flex-direction: column;
+      }
+
+      .reports-links {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .reports-illustration { display: none; }
     }
 
     @media (max-width: 480px) {
       .kpi-grid {
         grid-template-columns: 1fr;
       }
+
+      .reports-links {
+        grid-template-columns: 1fr;
+      }
     }
   `],
 })
 export class DashboardComponent {
+  activeTab = 'inventario';
+
   constructor(
     public auth: AuthService,
     private dataService: DataService
   ) {}
+
+  greeting = computed(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Buenos días';
+    if (hour < 18) return 'Buenas tardes';
+    return 'Buenas noches';
+  });
 
   totalProducts = computed(() => this.dataService.totalProducts());
   totalRecipes = computed(() => this.dataService.recipes().length);
@@ -514,18 +936,7 @@ export class DashboardComponent {
 
   lowStockProducts = computed(() => this.dataService.lowStockProducts().slice(0, 6));
 
-  recentLogs = computed(() => this.dataService.recipeLogs().slice(0, 5));
-
   getStockPercent(product: { currentStock: number; minStock: number }): number {
     return Math.min(100, (product.currentStock / Math.max(product.minStock, 1)) * 100);
-  }
-
-  formatDate(date: Date | string): string {
-    return new Date(date).toLocaleDateString('es', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   }
 }

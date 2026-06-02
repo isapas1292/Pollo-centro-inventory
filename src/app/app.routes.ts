@@ -16,10 +16,13 @@ export const routes: Routes = [
         path: 'dashboard', 
         component: DashboardComponent 
       },
-      // Mocked routes for now so it doesn't crash if they click
       { 
         path: 'inventory', 
-        loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent) 
+        loadComponent: () => import('./features/inventory/inventory.component').then(m => m.InventoryComponent) 
+      },
+      { 
+        path: 'reports', 
+        loadComponent: () => import('./features/reports/reports.component').then(m => m.ReportsComponent) 
       },
       { 
         path: 'recipes', 

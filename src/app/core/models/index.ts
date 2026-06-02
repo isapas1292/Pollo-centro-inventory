@@ -93,6 +93,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'inventory.view', 'inventory.edit', 'inventory.create', 'inventory.delete',
     'recipes.view', 'recipes.create', 'recipes.prepare', 'recipes.delete',
     'prices.view', 'prices.edit',
+    'reports.view',
     'alerts.view', 'alerts.configure',
     'users.view', 'users.create', 'users.edit', 'users.delete',
     'audit.view',
@@ -102,6 +103,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'inventory.view', 'inventory.edit', 'inventory.create',
     'recipes.view', 'recipes.create', 'recipes.prepare',
     'prices.view', 'prices.edit',
+    'reports.view',
     'alerts.view', 'alerts.configure',
     'audit.view',
   ],
@@ -110,6 +112,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'inventory.view',
     'recipes.view', 'recipes.prepare',
     'prices.view',
+    'reports.view',
     'alerts.view',
   ],
 };
