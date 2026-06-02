@@ -14,6 +14,7 @@ interface NavItem {
   label: string;
   route: string;
   permission: string;
+  children?: NavItem[];
 }
 
 @Component({
@@ -47,22 +48,50 @@ interface NavItem {
 
         <nav class="sidebar-nav">
           @for (item of visibleNavItems(); track item.route) {
-            <a class="nav-item"
-               [routerLink]="item.route"
-               routerLinkActive="active"
-               [matTooltip]="sidebarCollapsed() ? item.label : ''"
-               matTooltipPosition="right"
-               [id]="'nav-' + item.route.replace('/', '')">
-              <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
-              @if (!sidebarCollapsed()) {
-                <span class="nav-label">{{ item.label }}</span>
-              }
-              @if (item.route === '/alerts' && activeAlertCount() > 0) {
-                <span class="nav-badge" [class.collapsed-badge]="sidebarCollapsed()">
-                  {{ activeAlertCount() }}
-                </span>
-              }
-            </a>
+            @if (item.children) {
+              <div class="nav-group" [class.expanded]="isExpanded(item.route)">
+                <a class="nav-item has-children"
+                   (click)="toggleExpand(item.route)"
+                   [class.active]="isChildActive(item.route)"
+                   [matTooltip]="sidebarCollapsed() ? item.label : ''"
+                   matTooltipPosition="right">
+                  <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
+                  @if (!sidebarCollapsed()) {
+                    <span class="nav-label">{{ item.label }}</span>
+                    <mat-icon class="expand-icon">{{ isExpanded(item.route) ? 'expand_less' : 'expand_more' }}</mat-icon>
+                  }
+                </a>
+                @if (isExpanded(item.route) && !sidebarCollapsed()) {
+                  <div class="nav-children">
+                    @for (child of item.children; track child.route) {
+                      <a class="nav-item child-item"
+                         [routerLink]="child.route"
+                         routerLinkActive="active">
+                        <mat-icon class="nav-icon child-icon">{{ child.icon }}</mat-icon>
+                        <span class="nav-label">{{ child.label }}</span>
+                      </a>
+                    }
+                  </div>
+                }
+              </div>
+            } @else {
+              <a class="nav-item"
+                 [routerLink]="item.route"
+                 routerLinkActive="active"
+                 [matTooltip]="sidebarCollapsed() ? item.label : ''"
+                 matTooltipPosition="right"
+                 [id]="'nav-' + item.route.replace('/', '')">
+                <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
+                @if (!sidebarCollapsed()) {
+                  <span class="nav-label">{{ item.label }}</span>
+                }
+                @if (item.route === '/alerts' && activeAlertCount() > 0) {
+                  <span class="nav-badge" [class.collapsed-badge]="sidebarCollapsed()">
+                    {{ activeAlertCount() }}
+                  </span>
+                }
+              </a>
+            }
           }
         </nav>
 
@@ -469,6 +498,7 @@ interface NavItem {
 })
 export class LayoutComponent {
   sidebarCollapsed = signal(false);
+  expandedNavs = signal<Set<string>>(new Set());
 
   private navItems: NavItem[] = [
     { icon: 'dashboard', label: 'Dashboard', route: '/dashboard', permission: 'dashboard.view' },
@@ -476,7 +506,16 @@ export class LayoutComponent {
     { icon: 'assessment', label: 'Reportes', route: '/reports', permission: 'reports.view' },
     { icon: 'calendar_month', label: 'Horarios', route: '/schedule', permission: 'schedule.view' },
     { icon: 'restaurant', label: 'Recetas', route: '/recipes', permission: 'recipes.view' },
-    { icon: 'trending_up', label: 'Precios', route: '/prices', permission: 'prices.view' },
+    { 
+      icon: 'trending_up', 
+      label: 'Precios', 
+      route: '/prices', 
+      permission: 'prices.view',
+      children: [
+        { icon: 'list', label: 'Registro de Precios', route: '/prices/list', permission: 'prices.view' },
+        { icon: 'show_chart', label: 'Reportes de Aumento', route: '/prices/reports', permission: 'prices.view' }
+      ]
+    },
     { icon: 'notifications_active', label: 'Alertas', route: '/alerts', permission: 'alerts.view' },
     { icon: 'people', label: 'Usuarios', route: '/users', permission: 'users.view' },
   ];
@@ -499,5 +538,26 @@ export class LayoutComponent {
       operations: 'Operaciones',
     };
     return role ? labels[role] || role : '';
+  }
+
+  toggleExpand(route: string) {
+    this.expandedNavs.update(set => {
+      const newSet = new Set(set);
+      if (newSet.has(route)) {
+        newSet.delete(route);
+      } else {
+        newSet.add(route);
+      }
+      return newSet;
+    });
+  }
+
+  isExpanded(route: string): boolean {
+    return this.expandedNavs().has(route);
+  }
+
+  isChildActive(parentRoute: string): boolean {
+    // Basic check using window.location.pathname
+    return window.location.pathname.startsWith(parentRoute);
   }
 }

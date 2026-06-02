@@ -40,7 +40,12 @@ export const routes: Routes = [
       },
       { 
         path: 'prices', 
-        loadComponent: () => import('./features/prices/prices.component').then(m => m.PricesComponent) 
+        loadComponent: () => import('./features/prices/prices.component').then(m => m.PricesComponent),
+        children: [
+          { path: '', redirectTo: 'list', pathMatch: 'full' },
+          { path: 'list', loadComponent: () => import('./features/prices/price-list.component').then(m => m.PriceListComponent) },
+          { path: 'reports', loadComponent: () => import('./features/prices/price-reports.component').then(m => m.PriceReportsComponent) }
+        ]
       },
       { 
         path: 'alerts', 
