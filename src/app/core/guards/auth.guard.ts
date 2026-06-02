@@ -32,3 +32,17 @@ export const roleGuard = (...permissions: string[]): CanActivateFn => {
     return false;
   };
 };
+
+export const adminGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+
+  if (auth.isLoggedIn() && auth.userRole() === 'admin') {
+    return true;
+  }
+
+  // Si no es admin, cierra sesión o mándalo a una página de error
+  // Por ahora lo enviamos al login
+  auth.logout();
+  return false;
+};

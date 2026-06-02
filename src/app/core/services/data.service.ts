@@ -1,4 +1,6 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { Product, Recipe, RecipeLog, PriceRecord, StockAlert, AppUser, AuditLog, Employee, ScheduleShift, LOCATIONS, Supplier, OrderReception } from '../models';
 
 /**
@@ -8,6 +10,8 @@ import { Product, Recipe, RecipeLog, PriceRecord, StockAlert, AppUser, AuditLog,
  */
 @Injectable({ providedIn: 'root' })
 export class DataService {
+
+  private http = inject(HttpClient);
 
   // --- Reactive stores ---
   private _products = signal<Product[]>([]);
@@ -381,21 +385,41 @@ export class DataService {
   // ==========================================
   // SUPPLIERS
   // ==========================================
-  addSupplier(supplier: Omit<Supplier, 'id'>): Supplier {
-    const newSupplier = { ...supplier, id: this.generateId() };
-    this._suppliers.update(list => [...list, newSupplier]);
-    this.persist('pc_suppliers', this._suppliers());
-    return newSupplier;
+  async fetchSuppliers() {
+    try {
+      const result = await firstValueFrom(this.http.get<Supplier[]>('http://localhost:3000/api/suppliers'));
+      this._suppliers.set(result);
+    } catch (e) {
+      console.error('Error fetching suppliers', e);
+      this._suppliers.set([]);
+    }
   }
 
-  updateSupplier(id: string, updates: Partial<Supplier>): void {
-    this._suppliers.update(list => list.map(s => s.id === id ? { ...s, ...updates } : s));
-    this.persist('pc_suppliers', this._suppliers());
+  async addSupplier(supplier: Omit<Supplier, 'id'>) {
+    try {
+      const result = await firstValueFrom(this.http.post<Supplier>('http://localhost:3000/api/suppliers', supplier));
+      this._suppliers.update(list => [...list, result]);
+    } catch(e) {
+      console.error('Error adding supplier', e);
+    }
   }
 
-  deleteSupplier(id: string): void {
-    this._suppliers.update(list => list.filter(s => s.id !== id));
-    this.persist('pc_suppliers', this._suppliers());
+  async updateSupplier(id: string, updates: Partial<Supplier>) {
+    try {
+      const result = await firstValueFrom(this.http.put<Supplier>(`http://localhost:3000/api/suppliers/${id}`, updates));
+      this._suppliers.update(list => list.map(s => s.id === id ? { ...s, ...result } : s));
+    } catch(e) {
+      console.error('Error updating supplier', e);
+    }
+  }
+
+  async deleteSupplier(id: string) {
+    try {
+      await firstValueFrom(this.http.delete(`http://localhost:3000/api/suppliers/${id}`));
+      this._suppliers.update(list => list.filter(s => s.id !== id));
+    } catch(e) {
+      console.error('Error deleting supplier', e);
+    }
   }
 
   // ==========================================
@@ -437,7 +461,17 @@ export class DataService {
   // PERSISTENCE
   // ==========================================
   private loadAll(): void {
-    this._products.set(this.load('pc_products'));
+    this.http.get<Product[]>('http://localhost:3000/api/inventory').subscribe({
+      next: (data) => {
+        this._products.set(data);
+        this.persist('pc_products', data);
+      },
+      error: (err) => {
+        console.error('Error fetching inventory from backend:', err);
+        this._products.set([]);
+      }
+    });
+
     this._recipes.set(this.load('pc_recipes'));
     this._recipeLogs.set(this.load('pc_recipe_logs'));
     this._priceHistory.set(this.load('pc_price_history'));
@@ -446,7 +480,7 @@ export class DataService {
     this._auditLogs.set(this.load('pc_audit_logs'));
     this._employees.set(this.load('pc_employees'));
     this._schedules.set(this.load('pc_schedules'));
-    this._suppliers.set(this.load('pc_suppliers'));
+    this.fetchSuppliers(); // Fetch from backend
     this._orderReceptions.set(this.load('pc_order_receptions'));
   }
 
@@ -470,116 +504,10 @@ export class DataService {
   // DEMO DATA
   // ==========================================
   private seedDemoDataIfEmpty(): void {
-    // Seed Suppliers if empty
-    if (this._suppliers().length === 0) {
-      const demoSuppliers: Omit<Supplier, 'id'>[] = [
-        { name: 'Avícola San Juan', contactName: 'Juan Rodríguez', phone: '555-1001', email: 'ventas@avicolasanjuan.com', active: true },
-        { name: 'Distribuidora de Carnes', contactName: 'Pedro Martínez', phone: '555-1002', email: 'pedidos@districarnes.com', active: true },
-        { name: 'Insumos El Chef', contactName: 'Ana Silva', phone: '555-1003', email: 'contacto@insumoselchef.com', active: true },
-        { name: 'Empaques Modernos', contactName: 'Luis Torres', phone: '555-1004', email: 'ventas@empaques.com', active: true },
-        { name: 'Limpieza Total', contactName: 'Marta Ruiz', phone: '555-1005', email: 'soporte@limpiezatotal.com', active: true },
-      ];
-      demoSuppliers.forEach(s => this.addSupplier(s));
-    }
+    // Seed Suppliers si está vacío ya no lo usaremos aquí
+    // para no contaminar la base de datos real.
 
-    if (this._products().length > 0) return;
-
-    const suppliers = this._suppliers();
-    
-    const sPollo = suppliers[0];
-    const sInsumos = suppliers[2];
-    const sEmpaque = suppliers[3];
-    const sLimpieza = suppliers[4];
-
-    const demoProducts: Omit<Product, 'id' | 'lastUpdated'>[] = [
-      { name: 'Pollo Entero', category: 'pollo', currentStock: 150, unit: 'unidad', minStock: 30, currentPrice: 4.50, createdBy: 'system', supplierId: sPollo.id, supplierName: sPollo.name },
-      { name: 'Pechuga de Pollo', category: 'pollo', currentStock: 80, unit: 'kg', minStock: 20, currentPrice: 6.20, createdBy: 'system', supplierId: sPollo.id, supplierName: sPollo.name },
-      { name: 'Muslos de Pollo', category: 'pollo', currentStock: 12, unit: 'kg', minStock: 15, currentPrice: 3.80, createdBy: 'system', supplierId: sPollo.id, supplierName: sPollo.name },
-      { name: 'Alas de Pollo', category: 'pollo', currentStock: 45, unit: 'kg', minStock: 10, currentPrice: 3.50, createdBy: 'system', supplierId: sPollo.id, supplierName: sPollo.name },
-      { name: 'Aceite Vegetal', category: 'insumos', currentStock: 25, unit: 'litro', minStock: 10, currentPrice: 2.80, createdBy: 'system', supplierId: sInsumos.id, supplierName: sInsumos.name },
-      { name: 'Sal', category: 'insumos', currentStock: 8, unit: 'kg', minStock: 5, currentPrice: 0.50, createdBy: 'system', supplierId: sInsumos.id, supplierName: sInsumos.name },
-      { name: 'Pimienta', category: 'insumos', currentStock: 3, unit: 'kg', minStock: 2, currentPrice: 8.00, createdBy: 'system', supplierId: sInsumos.id, supplierName: sInsumos.name },
-      { name: 'Harina de Trigo', category: 'insumos', currentStock: 30, unit: 'kg', minStock: 10, currentPrice: 1.20, createdBy: 'system', supplierId: sInsumos.id, supplierName: sInsumos.name },
-      { name: 'Cajas Delivery', category: 'empaque', currentStock: 200, unit: 'unidad', minStock: 50, currentPrice: 0.35, createdBy: 'system', supplierId: sEmpaque.id, supplierName: sEmpaque.name },
-      { name: 'Bolsas Plásticas', category: 'empaque', currentStock: 5, unit: 'paquete', minStock: 10, currentPrice: 3.00, createdBy: 'system', supplierId: sEmpaque.id, supplierName: sEmpaque.name },
-      { name: 'Desinfectante', category: 'limpieza', currentStock: 6, unit: 'litro', minStock: 3, currentPrice: 4.50, createdBy: 'system', supplierId: sLimpieza.id, supplierName: sLimpieza.name },
-      { name: 'Guantes Descartables', category: 'limpieza', currentStock: 4, unit: 'paquete', minStock: 5, currentPrice: 5.00, createdBy: 'system', supplierId: sLimpieza.id, supplierName: sLimpieza.name },
-    ];
-
-    const products = demoProducts.map(p => this.addProduct(p));
-
-    // Seed price history (simulate last 30 days)
-    const now = new Date();
-    for (const product of products) {
-      for (let i = 30; i >= 1; i--) {
-        const date = new Date(now);
-        date.setDate(date.getDate() - i);
-        const variation = 1 + (Math.random() - 0.48) * 0.08; // slight upward bias
-        const historicalPrice = +(product.currentPrice * variation).toFixed(2);
-        const record: PriceRecord = {
-          id: this.generateId(),
-          productId: product.id,
-          productName: product.name,
-          price: historicalPrice,
-          recordedAt: date,
-          recordedBy: 'system',
-        };
-        this._priceHistory.update(list => [...list, record]);
-      }
-    }
-    this.persist('pc_price_history', this._priceHistory());
-
-    // Seed recipes
-    const chickenIds = products.filter(p => p.category === 'pollo').map(p => p.id);
-    const demoRecipes: Omit<Recipe, 'id' | 'createdAt'>[] = [
-      {
-        name: 'Pollo Frito Clásico',
-        description: 'Pollo empanizado y frito, la especialidad de la casa',
-        ingredients: [
-          { productId: products[0].id, productName: 'Pollo Entero', quantity: 2 },
-          { productId: products[4].id, productName: 'Aceite Vegetal', quantity: 3 },
-          { productId: products[7].id, productName: 'Harina de Trigo', quantity: 0.5 },
-          { productId: products[5].id, productName: 'Sal', quantity: 0.1 },
-          { productId: products[6].id, productName: 'Pimienta', quantity: 0.05 },
-        ],
-        estimatedCost: 0,
-        createdBy: 'system',
-      },
-      {
-        name: 'Pechuga a la Plancha',
-        description: 'Pechuga de pollo a la plancha con especias',
-        ingredients: [
-          { productId: products[1].id, productName: 'Pechuga de Pollo', quantity: 1 },
-          { productId: products[4].id, productName: 'Aceite Vegetal', quantity: 0.2 },
-          { productId: products[5].id, productName: 'Sal', quantity: 0.05 },
-          { productId: products[6].id, productName: 'Pimienta', quantity: 0.02 },
-        ],
-        estimatedCost: 0,
-        createdBy: 'system',
-      },
-      {
-        name: 'Alitas BBQ',
-        description: 'Alitas de pollo con salsa BBQ',
-        ingredients: [
-          { productId: products[3].id, productName: 'Alas de Pollo', quantity: 2 },
-          { productId: products[4].id, productName: 'Aceite Vegetal', quantity: 0.5 },
-          { productId: products[5].id, productName: 'Sal', quantity: 0.05 },
-        ],
-        estimatedCost: 0,
-        createdBy: 'system',
-      },
-    ];
-
-    for (const recipe of demoRecipes) {
-      // Calculate estimated cost
-      let cost = 0;
-      for (const ing of recipe.ingredients) {
-        const prod = products.find(p => p.id === ing.productId);
-        if (prod) cost += prod.currentPrice * ing.quantity;
-      }
-      recipe.estimatedCost = +cost.toFixed(2);
-      this.addRecipe(recipe);
-    }
+    // Products, Price History, and Recipes mock data removed as per request
 
     // Seed Demo Employees and Schedules
     if (this._employees().length === 0) {

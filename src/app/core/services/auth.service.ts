@@ -1,5 +1,7 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { AppUser, UserRole, ROLE_PERMISSIONS } from '../models';
 
 @Injectable({ providedIn: 'root' })
@@ -11,7 +13,7 @@ export class AuthService {
   readonly userRole = computed(() => this.currentUser()?.role ?? null);
   readonly userName = computed(() => this.currentUser()?.displayName ?? '');
 
-  constructor(private router: Router) {
+  constructor(private router: Router, private http: HttpClient) {
     // Restore session
     const stored = localStorage.getItem('pc_user');
     if (stored) {
@@ -24,37 +26,27 @@ export class AuthService {
   }
 
   async login(email: string, password: string): Promise<boolean> {
-    // Get users from storage
-    const users: AppUser[] = JSON.parse(localStorage.getItem('pc_users') || '[]');
-
-    // Check default admin
-    if (email === 'admin@pollocentro.com' && password === 'admin123') {
-      const adminUser: AppUser = {
-        uid: 'admin-001',
-        email: 'admin@pollocentro.com',
-        displayName: 'Administrador',
-        role: 'master',
-        active: true,
-        createdAt: new Date(),
-      };
-      this.setUser(adminUser);
-      return true;
+    try {
+      const response = await firstValueFrom(
+        this.http.post<{token: string, user: AppUser}>('http://localhost:3000/api/auth/login', { email, password })
+      );
+      
+      if (response && response.token && response.user) {
+        localStorage.setItem('pc_token', response.token);
+        this.setUser(response.user);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Login error:', error);
+      return false;
     }
-
-    // Check registered users (password is stored as plain text for demo - in production use Firebase Auth)
-    const passwords: Record<string, string> = JSON.parse(localStorage.getItem('pc_passwords') || '{}');
-    const user = users.find(u => u.email === email && passwords[u.uid] === password && u.active);
-    if (user) {
-      this.setUser(user);
-      return true;
-    }
-
-    return false;
   }
 
   logout(): void {
     this.currentUser.set(null);
     localStorage.removeItem('pc_user');
+    localStorage.removeItem('pc_token');
     this.router.navigate(['/login']);
   }
 
