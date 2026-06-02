@@ -27,7 +27,8 @@ export const routes: Routes = [
           { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
           { path: 'dashboard', loadComponent: () => import('./features/reports/reports-dashboard.component').then(m => m.ReportsDashboardComponent) },
           { path: 'closing-inventory', loadComponent: () => import('./features/reports/closing-inventory.component').then(m => m.ClosingInventoryComponent) },
-          { path: 'inventory-activity', loadComponent: () => import('./features/reports/inventory-activity.component').then(m => m.InventoryActivityComponent) }
+          { path: 'inventory-activity', loadComponent: () => import('./features/reports/inventory-activity.component').then(m => m.InventoryActivityComponent) },
+          { path: 'loss-statement', loadComponent: () => import('./features/reports/loss-statement.component').then(m => m.LossStatementComponent) }
         ]
       },
       { 

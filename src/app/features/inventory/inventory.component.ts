@@ -431,14 +431,12 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
     }
 
     .filters-bar {
-      background: #f8fafc;
+      background: linear-gradient(135deg, rgba(22, 33, 62, 0.7), rgba(26, 26, 46, 0.5));
+      backdrop-filter: blur(16px);
       border: 1px solid var(--pc-border);
       border-radius: var(--pc-radius-lg);
       padding: 16px 20px;
       margin-bottom: 20px;
-    }
-    .dark .filters-bar {
-      background: linear-gradient(135deg, rgba(22, 33, 62, 0.6), rgba(26, 26, 46, 0.4));
     }
 
     .filter-row-top {
@@ -457,8 +455,8 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
       font-weight: 600;
     }
     
-    .date-text { color: #3B82F6; }
-    .total-text { color: #3B82F6; }
+    .date-text { color: var(--pc-yellow); }
+    .total-text { color: var(--pc-text-primary); }
     .alert-text { color: #10B981; display: flex; align-items: center; gap: 4px; }
     .alert-text mat-icon { font-size: 16px; width: 16px; height: 16px; }
 
@@ -470,25 +468,31 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
 
     .custom-select {
       appearance: none;
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 4px;
-      padding: 6px 32px 6px 12px;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--pc-border);
+      border-radius: var(--pc-radius-md);
+      padding: 8px 32px 8px 12px;
       font-size: 0.85rem;
-      color: #3B82F6;
+      color: var(--pc-text-primary);
+      font-family: var(--pc-font-body);
       font-weight: 500;
       outline: none;
       cursor: pointer;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%233B82F6'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23F2C94C'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
       background-repeat: no-repeat;
       background-position: right 8px center;
       background-size: 16px;
       min-width: 140px;
+      transition: all var(--pc-transition-fast);
     }
-    .dark .custom-select {
-      background-color: var(--pc-bg-input);
-      border-color: var(--pc-border);
-      color: var(--pc-text-primary);
+    
+    .custom-select:focus {
+      border-color: var(--pc-yellow);
+    }
+    
+    .custom-select option {
+      background: var(--pc-bg-sidebar);
+      color: white;
     }
 
     .search-wrap {

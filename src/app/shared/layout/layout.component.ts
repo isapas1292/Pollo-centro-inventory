@@ -519,9 +519,10 @@ export class LayoutComponent {
       route: '/reports', 
       permission: 'reports.view',
       children: [
-        { icon: 'dashboard', label: 'Dashboard', route: '/reports/dashboard', permission: 'reports.view' },
-        { icon: 'list_alt', label: 'Closing Inventory', route: '/reports/closing-inventory', permission: 'reports.view' },
-        { icon: 'history', label: 'Inventory Activity', route: '/reports/inventory-activity', permission: 'reports.view' }
+        { icon: 'analytics', label: 'Resumen General', route: '/reports/dashboard', permission: 'reports.view' },
+        { icon: 'list_alt', label: 'Cierre de Inventario', route: '/reports/closing-inventory', permission: 'reports.view' },
+        { icon: 'history', label: 'Actividad de Inventario', route: '/reports/inventory-activity', permission: 'reports.view' },
+        { icon: 'trending_down', label: 'Pérdidas y Ganancias', route: '/reports/loss-statement', permission: 'reports.view' }
       ]
     },
     { icon: 'calendar_month', label: 'Horarios', route: '/schedule', permission: 'schedule.view' },
