@@ -30,19 +30,25 @@ export const routes: Routes = [
       },
       { 
         path: 'recipes', 
-        loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent) 
+        loadComponent: () => import('./features/recipes/recipes.component').then(m => m.RecipesComponent),
+        children: [
+          { path: '', redirectTo: 'list', pathMatch: 'full' },
+          { path: 'list', loadComponent: () => import('./features/recipes/recipe-list.component').then(m => m.RecipeListComponent) },
+          { path: 'create', loadComponent: () => import('./features/recipes/recipe-form.component').then(m => m.RecipeFormComponent) },
+          { path: 'edit/:id', loadComponent: () => import('./features/recipes/recipe-form.component').then(m => m.RecipeFormComponent) }
+        ]
       },
       { 
         path: 'prices', 
-        loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent) 
+        loadComponent: () => import('./features/prices/prices.component').then(m => m.PricesComponent) 
       },
       { 
         path: 'alerts', 
-        loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent) 
+        loadComponent: () => import('./features/alerts/alerts.component').then(m => m.AlertsComponent) 
       },
       { 
         path: 'users', 
-        loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent) 
+        loadComponent: () => import('./features/users/users.component').then(m => m.UsersComponent) 
       }
     ]
   },
