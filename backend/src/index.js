@@ -59,6 +59,90 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// --- Suppliers Routes ---
+app.get('/api/suppliers', async (req, res) => {
+  try {
+    const proveedores = await prisma.proveedores.findMany({ orderBy: { NombreProveedor: 'asc' } });
+    res.json(proveedores.map(p => ({
+      id: p.IdProveedor.toString(),
+      name: p.NombreProveedor,
+      contactName: p.Direccion || '',
+      phone: p.Telefono || '',
+      email: p.Correo || '',
+      active: p.Estado,
+      notes: p.RNC || ''
+    })));
+  } catch (error) {
+    res.status(500).json({ error: 'Error fetching suppliers' });
+  }
+});
+
+app.post('/api/suppliers', async (req, res) => {
+  const { name, contactName, phone, email, active, notes } = req.body;
+  try {
+    const p = await prisma.proveedores.create({
+      data: {
+        NombreProveedor: name,
+        Direccion: contactName,
+        Telefono: phone,
+        Correo: email,
+        Estado: active,
+        RNC: notes
+      }
+    });
+    res.json({
+      id: p.IdProveedor.toString(),
+      name: p.NombreProveedor,
+      contactName: p.Direccion || '',
+      phone: p.Telefono || '',
+      email: p.Correo || '',
+      active: p.Estado,
+      notes: p.RNC || ''
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Error creating supplier' });
+  }
+});
+
+app.put('/api/suppliers/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, contactName, phone, email, active, notes } = req.body;
+  try {
+    const p = await prisma.proveedores.update({
+      where: { IdProveedor: parseInt(id) },
+      data: {
+        NombreProveedor: name,
+        Direccion: contactName,
+        Telefono: phone,
+        Correo: email,
+        Estado: active,
+        RNC: notes
+      }
+    });
+    res.json({
+      id: p.IdProveedor.toString(),
+      name: p.NombreProveedor,
+      contactName: p.Direccion || '',
+      phone: p.Telefono || '',
+      email: p.Correo || '',
+      active: p.Estado,
+      notes: p.RNC || ''
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Error updating supplier' });
+  }
+});
+
+app.delete('/api/suppliers/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.proveedores.delete({ where: { IdProveedor: parseInt(id) } });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Error deleting supplier' });
+  }
+});
+
 // Obtener todo el inventario
 app.get('/api/inventory', async (req, res) => {
   try {

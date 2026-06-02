@@ -1,5 +1,6 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { Product, Recipe, RecipeLog, PriceRecord, StockAlert, AppUser, AuditLog, Employee, ScheduleShift, LOCATIONS, Supplier, OrderReception } from '../models';
 
 /**
@@ -384,21 +385,41 @@ export class DataService {
   // ==========================================
   // SUPPLIERS
   // ==========================================
-  addSupplier(supplier: Omit<Supplier, 'id'>): Supplier {
-    const newSupplier = { ...supplier, id: this.generateId() };
-    this._suppliers.update(list => [...list, newSupplier]);
-    this.persist('pc_suppliers', this._suppliers());
-    return newSupplier;
+  async fetchSuppliers() {
+    try {
+      const result = await firstValueFrom(this.http.get<Supplier[]>('http://localhost:3000/api/suppliers'));
+      this._suppliers.set(result);
+    } catch (e) {
+      console.error('Error fetching suppliers', e);
+      this._suppliers.set([]);
+    }
   }
 
-  updateSupplier(id: string, updates: Partial<Supplier>): void {
-    this._suppliers.update(list => list.map(s => s.id === id ? { ...s, ...updates } : s));
-    this.persist('pc_suppliers', this._suppliers());
+  async addSupplier(supplier: Omit<Supplier, 'id'>) {
+    try {
+      const result = await firstValueFrom(this.http.post<Supplier>('http://localhost:3000/api/suppliers', supplier));
+      this._suppliers.update(list => [...list, result]);
+    } catch(e) {
+      console.error('Error adding supplier', e);
+    }
   }
 
-  deleteSupplier(id: string): void {
-    this._suppliers.update(list => list.filter(s => s.id !== id));
-    this.persist('pc_suppliers', this._suppliers());
+  async updateSupplier(id: string, updates: Partial<Supplier>) {
+    try {
+      const result = await firstValueFrom(this.http.put<Supplier>(`http://localhost:3000/api/suppliers/${id}`, updates));
+      this._suppliers.update(list => list.map(s => s.id === id ? { ...s, ...result } : s));
+    } catch(e) {
+      console.error('Error updating supplier', e);
+    }
+  }
+
+  async deleteSupplier(id: string) {
+    try {
+      await firstValueFrom(this.http.delete(`http://localhost:3000/api/suppliers/${id}`));
+      this._suppliers.update(list => list.filter(s => s.id !== id));
+    } catch(e) {
+      console.error('Error deleting supplier', e);
+    }
   }
 
   // ==========================================
@@ -459,7 +480,7 @@ export class DataService {
     this._auditLogs.set(this.load('pc_audit_logs'));
     this._employees.set(this.load('pc_employees'));
     this._schedules.set(this.load('pc_schedules'));
-    this._suppliers.set(this.load('pc_suppliers'));
+    this.fetchSuppliers(); // Fetch from backend
     this._orderReceptions.set(this.load('pc_order_receptions'));
   }
 
@@ -483,17 +504,8 @@ export class DataService {
   // DEMO DATA
   // ==========================================
   private seedDemoDataIfEmpty(): void {
-    // Seed Suppliers if empty
-    if (this._suppliers().length === 0) {
-      const demoSuppliers: Omit<Supplier, 'id'>[] = [
-        { name: 'Avícola San Juan', contactName: 'Juan Rodríguez', phone: '555-1001', email: 'ventas@avicolasanjuan.com', active: true },
-        { name: 'Distribuidora de Carnes', contactName: 'Pedro Martínez', phone: '555-1002', email: 'pedidos@districarnes.com', active: true },
-        { name: 'Insumos El Chef', contactName: 'Ana Silva', phone: '555-1003', email: 'contacto@insumoselchef.com', active: true },
-        { name: 'Empaques Modernos', contactName: 'Luis Torres', phone: '555-1004', email: 'ventas@empaques.com', active: true },
-        { name: 'Limpieza Total', contactName: 'Marta Ruiz', phone: '555-1005', email: 'soporte@limpiezatotal.com', active: true },
-      ];
-      demoSuppliers.forEach(s => this.addSupplier(s));
-    }
+    // Seed Suppliers si está vacío ya no lo usaremos aquí
+    // para no contaminar la base de datos real.
 
     // Products, Price History, and Recipes mock data removed as per request
 
