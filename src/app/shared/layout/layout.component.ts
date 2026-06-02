@@ -474,6 +474,7 @@ export class LayoutComponent {
     { icon: 'dashboard', label: 'Dashboard', route: '/dashboard', permission: 'dashboard.view' },
     { icon: 'inventory_2', label: 'Inventario', route: '/inventory', permission: 'inventory.view' },
     { icon: 'assessment', label: 'Reportes', route: '/reports', permission: 'reports.view' },
+    { icon: 'calendar_month', label: 'Horarios', route: '/schedule', permission: 'schedule.view' },
     { icon: 'restaurant', label: 'Recetas', route: '/recipes', permission: 'recipes.view' },
     { icon: 'trending_up', label: 'Precios', route: '/prices', permission: 'prices.view' },
     { icon: 'notifications_active', label: 'Alertas', route: '/alerts', permission: 'alerts.view' },

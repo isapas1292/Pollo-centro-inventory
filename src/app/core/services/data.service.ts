@@ -1,5 +1,5 @@
 import { Injectable, signal, computed } from '@angular/core';
-import { Product, Recipe, RecipeLog, PriceRecord, StockAlert, AppUser, AuditLog } from '../models';
+import { Product, Recipe, RecipeLog, PriceRecord, StockAlert, AppUser, AuditLog, Employee, ScheduleShift, LOCATIONS } from '../models';
 
 /**
  * DataService — Simulates a real-time database using localStorage + signals.
@@ -17,6 +17,8 @@ export class DataService {
   private _alerts = signal<StockAlert[]>([]);
   private _users = signal<AppUser[]>([]);
   private _auditLogs = signal<AuditLog[]>([]);
+  private _employees = signal<Employee[]>([]);
+  private _schedules = signal<ScheduleShift[]>([]);
 
   // --- Public readonly signals ---
   readonly products = this._products.asReadonly();
@@ -26,6 +28,9 @@ export class DataService {
   readonly alerts = this._alerts.asReadonly();
   readonly users = this._users.asReadonly();
   readonly auditLogs = this._auditLogs.asReadonly();
+  readonly employees = this._employees.asReadonly();
+  readonly schedules = this._schedules.asReadonly();
+  readonly locations = LOCATIONS;
 
   // --- Computed signals ---
   readonly activeAlerts = computed(() => this._alerts().filter(a => a.status === 'active'));
@@ -315,6 +320,60 @@ export class DataService {
   }
 
   // ==========================================
+  // EMPLOYEES & SCHEDULES
+  // ==========================================
+  addEmployee(employee: Omit<Employee, 'id'>): Employee {
+    const newEmp = { ...employee, id: this.generateId() };
+    this._employees.update(list => [...list, newEmp]);
+    this.persist('pc_employees', this._employees());
+    return newEmp;
+  }
+
+  updateEmployee(id: string, updates: Partial<Employee>): void {
+    this._employees.update(list => list.map(e => e.id === id ? { ...e, ...updates } : e));
+    this.persist('pc_employees', this._employees());
+  }
+
+  deleteEmployee(id: string): void {
+    this._employees.update(list => list.filter(e => e.id !== id));
+    this.persist('pc_employees', this._employees());
+    // Also delete their schedules
+    this._schedules.update(list => list.filter(s => s.employeeId !== id));
+    this.persist('pc_schedules', this._schedules());
+  }
+
+  addShift(shift: Omit<ScheduleShift, 'id'>): ScheduleShift {
+    const newShift = { ...shift, id: this.generateId() };
+    this._schedules.update(list => [...list, newShift]);
+    this.persist('pc_schedules', this._schedules());
+    return newShift;
+  }
+
+  updateShift(id: string, updates: Partial<ScheduleShift>): void {
+    this._schedules.update(list => list.map(s => s.id === id ? { ...s, ...updates } : s));
+    this.persist('pc_schedules', this._schedules());
+  }
+
+  deleteShift(id: string): void {
+    this._schedules.update(list => list.filter(s => s.id !== id));
+    this.persist('pc_schedules', this._schedules());
+  }
+
+  getShiftsForWeek(weekKey: string): ScheduleShift[] {
+    return this._schedules().filter(s => s.weekKey === weekKey);
+  }
+
+  // Helper to generate the current week key
+  getCurrentWeekKey(): string {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+    const yearStart = new Date(d.getFullYear(), 0, 1);
+    const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    return `${d.getFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
+  }
+
+  // ==========================================
   // PERSISTENCE
   // ==========================================
   private loadAll(): void {
@@ -325,6 +384,8 @@ export class DataService {
     this._alerts.set(this.load('pc_alerts'));
     this._users.set(this.load('pc_users'));
     this._auditLogs.set(this.load('pc_audit_logs'));
+    this._employees.set(this.load('pc_employees'));
+    this._schedules.set(this.load('pc_schedules'));
   }
 
   private load<T>(key: string): T[] {
@@ -437,6 +498,49 @@ export class DataService {
       }
       recipe.estimatedCost = +cost.toFixed(2);
       this.addRecipe(recipe);
+    }
+
+    // Seed Demo Employees and Schedules
+    if (this._employees().length === 0) {
+      const demoEmployees = [
+        { name: 'Juan Pérez', role: 'Cocinero', active: true, phone: '555-0101' },
+        { name: 'María Gómez', role: 'Cajera', active: true, phone: '555-0102' },
+        { name: 'Carlos Díaz', role: 'Delivery', active: true, phone: '555-0103' },
+        { name: 'Ana López', role: 'Manager', active: true, phone: '555-0104' },
+        { name: 'Luis Torres', role: 'Ayudante', active: true, phone: '555-0105' },
+        { name: 'Sofía Ruiz', role: 'Cajera', active: true, phone: '555-0106' },
+        { name: 'Miguel Ángel', role: 'Cocinero', active: true, phone: '555-0107' },
+        { name: 'Laura Cruz', role: 'Limpieza', active: true, phone: '555-0108' },
+      ];
+      const emps = demoEmployees.map(e => this.addEmployee(e));
+
+      // Seed schedule for the current week across different locations
+      const weekKey = this.getCurrentWeekKey();
+      const shifts: Omit<ScheduleShift, 'id'>[] = [];
+      const defaultStart = '08:00';
+      const defaultEnd = '16:00';
+      const lateStart = '12:00';
+      const lateEnd = '20:00';
+
+      emps.forEach((emp, index) => {
+        const loc = LOCATIONS[index % LOCATIONS.length];
+        
+        // Give everyone 5 days of work (Mon-Fri)
+        for (let day = 0; day < 5; day++) {
+            shifts.push({
+                employeeId: emp.id,
+                employeeName: emp.name,
+                locationId: loc.id,
+                locationName: loc.name,
+                dayOfWeek: day,
+                startTime: index % 2 === 0 ? defaultStart : lateStart,
+                endTime: index % 2 === 0 ? defaultEnd : lateEnd,
+                weekKey
+            });
+        }
+      });
+      
+      shifts.forEach(s => this.addShift(s));
     }
   }
 }

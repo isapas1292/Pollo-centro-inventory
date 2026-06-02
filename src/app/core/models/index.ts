@@ -12,6 +12,41 @@ export interface AppUser {
   createdAt: Date;
 }
 
+export interface Location {
+  id: string;
+  name: string;
+  address?: string;
+}
+
+export interface Employee {
+  id: string;
+  name: string;
+  role: string;
+  phone?: string;
+  active: boolean;
+}
+
+export interface ScheduleShift {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  locationId: string;
+  locationName: string;
+  dayOfWeek: number; // 0 = Lunes, 6 = Domingo
+  startTime: string; // 'HH:mm'
+  endTime: string;   // 'HH:mm'
+  weekKey: string;   // e.g., '2026-W23'
+}
+
+export const LOCATIONS: Location[] = [
+  { id: 'loc-union', name: 'Pollo Centro - S. Union' },
+  { id: 'loc-broadway', name: 'Pollo Centro - Broadway' },
+  { id: 'loc-haverhill', name: 'Pollo Centro - Haverhill' },
+  { id: 'loc-lynn', name: 'Pollo Centro - Lynn' },
+  { id: 'loc-prep', name: 'Pollo Centro - Prep' },
+  { id: 'loc-worcester', name: 'Pollo Centro - Worcester' },
+];
+
 export type ProductCategory = 'pollo' | 'insumos' | 'empaque' | 'limpieza' | 'otro';
 export type ProductUnit = 'kg' | 'lb' | 'unidad' | 'litro' | 'paquete';
 
@@ -94,6 +129,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'recipes.view', 'recipes.create', 'recipes.prepare', 'recipes.delete',
     'prices.view', 'prices.edit',
     'reports.view',
+    'schedule.view', 'schedule.edit',
     'alerts.view', 'alerts.configure',
     'users.view', 'users.create', 'users.edit', 'users.delete',
     'audit.view',
@@ -104,6 +140,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'recipes.view', 'recipes.create', 'recipes.prepare',
     'prices.view', 'prices.edit',
     'reports.view',
+    'schedule.view', 'schedule.edit',
     'alerts.view', 'alerts.configure',
     'audit.view',
   ],
@@ -113,6 +150,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'recipes.view', 'recipes.prepare',
     'prices.view',
     'reports.view',
+    'schedule.view',
     'alerts.view',
   ],
 };
