@@ -307,6 +307,50 @@ interface NavItem {
       transition: color var(--pc-transition-fast);
     }
 
+    .nav-children {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-top: 2px;
+      margin-left: 20px;
+      padding-left: 10px;
+      border-left: 1px dashed rgba(255, 255, 255, 0.15);
+    }
+
+    .child-item {
+      color: rgba(255, 255, 255, 0.45) !important;
+      font-size: 0.82rem;
+      padding: 8px 12px;
+      font-weight: 400;
+    }
+
+    .child-item .nav-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      opacity: 0.6;
+    }
+
+    .child-item:hover {
+      color: var(--pc-text-primary) !important;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .child-item.active {
+      color: var(--pc-yellow) !important;
+      background: rgba(242, 201, 76, 0.08);
+      font-weight: 500;
+    }
+
+    .child-item.active .nav-icon {
+      color: var(--pc-yellow);
+      opacity: 1;
+    }
+
+    .child-item.active::before {
+      display: none; /* Hide the big left bar for child items to keep it subtle */
+    }
+
     .nav-badge {
       margin-left: auto;
       background: var(--pc-red);
