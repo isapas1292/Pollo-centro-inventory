@@ -3,44 +3,40 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../../core/services/data.service';
 import { OrderReception, Supplier, Product } from '../../core/models';
-import { LucideShoppingCart, LucidePlus, LucideSearch, LucideMail, LucideCheckCircle, LucideClock, LucidePackage } from '@lucide/angular';
+import { MatIconModule } from '@angular/material/icon';
 
 @Component({
   selector: 'app-orders',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideShoppingCart, LucidePlus, LucideSearch, LucideMail, LucideCheckCircle, LucideClock, LucidePackage],
+  imports: [CommonModule, FormsModule, MatIconModule],
   template: `
-    <div class="space-y-6 animate-fade-in">
+    <div class="orders-page animate-fade-in-up">
       <!-- Header -->
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <svg lucideShoppingCart class="w-8 h-8 text-primary-500"></svg>
-            Pedidos y Recepciones
-          </h1>
-          <p class="text-gray-500 dark:text-gray-400">Gestiona pedidos a proveedores y registra la llegada de mercancía.</p>
+      <div class="page-header">
+        <div class="header-text">
+          <h1><mat-icon class="header-icon">shopping_cart</mat-icon> Pedidos y Recepciones</h1>
+          <p>Gestiona pedidos a proveedores y registra la llegada de mercancía.</p>
         </div>
-        
-        <button 
-          (click)="openForm()"
-          class="btn-primary flex items-center gap-2">
-          <svg lucidePlus class="w-5 h-5"></svg>
-          Hacer Pedido
-        </button>
+        <div class="header-actions">
+          <button (click)="openForm()" class="btn-primary flex items-center gap-2">
+            <mat-icon>add</mat-icon>
+            Hacer Pedido
+          </button>
+        </div>
       </div>
 
       <!-- Filters & Search -->
-      <div class="card p-4 flex flex-col sm:flex-row gap-4">
-        <div class="relative flex-1">
-          <svg lucideSearch class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"></svg>
+      <div class="filter-section">
+        <div class="search-box">
+          <mat-icon class="search-icon">search</mat-icon>
           <input 
             type="text" 
             [(ngModel)]="searchTerm"
-            placeholder="Buscar por producto, proveedor o estado..." 
-            class="input-field pl-10"
+            placeholder="Buscar por producto o proveedor..." 
+            class="search-input"
           >
         </div>
-        <select [(ngModel)]="statusFilter" class="input-field w-full sm:w-48">
+        <select [(ngModel)]="statusFilter" class="pc-select w-full sm:w-48">
           <option value="all">Todos los estados</option>
           <option value="pending">Pendientes</option>
           <option value="completed">Completados (Recibidos)</option>
@@ -48,108 +44,86 @@ import { LucideShoppingCart, LucidePlus, LucideSearch, LucideMail, LucideCheckCi
       </div>
 
       <!-- Orders Grid/Table -->
-      <div class="card overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse">
-            <thead>
-              <tr class="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
-                <th class="p-4 font-semibold text-gray-600 dark:text-gray-300">Fecha</th>
-                <th class="p-4 font-semibold text-gray-600 dark:text-gray-300">Producto</th>
-                <th class="p-4 font-semibold text-gray-600 dark:text-gray-300">Proveedor</th>
-                <th class="p-4 font-semibold text-gray-600 dark:text-gray-300">Cantidad</th>
-                <th class="p-4 font-semibold text-gray-600 dark:text-gray-300">Total</th>
-                <th class="p-4 font-semibold text-gray-600 dark:text-gray-300">Estado</th>
-                <th class="p-4 font-semibold text-gray-600 dark:text-gray-300 text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (order of filteredOrders(); track order.id) {
-                <tr class="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors">
-                  <td class="p-4">
-                    <div class="text-gray-900 dark:text-white font-medium">
-                      {{ order.receivedAt | date:'shortDate' }}
-                    </div>
-                  </td>
-                  <td class="p-4">
-                    <div class="font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                      <svg lucidePackage class="w-4 h-4 text-gray-400"></svg>
-                      {{ order.productName }}
-                    </div>
-                  </td>
-                  <td class="p-4 text-gray-600 dark:text-gray-400">
-                    {{ order.supplierName }}
-                  </td>
-                  <td class="p-4 text-gray-900 dark:text-white font-medium">
-                    {{ order.quantity }}
-                  </td>
-                  <td class="p-4 font-semibold text-primary-600">
-                    {{ order.total | currency }}
-                  </td>
-                  <td class="p-4">
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-                          [class.bg-yellow-100]="order.status === 'pending'"
-                          [class.text-yellow-800]="order.status === 'pending'"
-                          [class.dark:bg-yellow-900/30]="order.status === 'pending'"
-                          [class.dark:text-yellow-400]="order.status === 'pending'"
-                          [class.bg-green-100]="order.status === 'completed'"
-                          [class.text-green-800]="order.status === 'completed'"
-                          [class.dark:bg-green-900/30]="order.status === 'completed'"
-                          [class.dark:text-green-400]="order.status === 'completed'">
-                      @if (order.status === 'pending') {
-                        <svg lucideClock class="w-3.5 h-3.5"></svg>
-                      } @else {
-                        <svg lucideCheckCircle class="w-3.5 h-3.5"></svg>
-                      }
-                      {{ order.status === 'pending' ? 'Pendiente' : 'Recibido' }}
-                    </span>
-                  </td>
-                  <td class="p-4 text-right space-x-2 flex justify-end">
+      <div class="activity-section animate-fade-in-up">
+        <div class="section-header">
+          <h3><mat-icon>list_alt</mat-icon> Registro de Pedidos</h3>
+          <span class="view-all-link">{{ filteredOrders().length }} pedidos</span>
+        </div>
+        <div class="activity-table">
+          <div class="activity-header-row">
+            <span class="ath">Fecha</span>
+            <span class="ath">Producto</span>
+            <span class="ath">Proveedor</span>
+            <span class="ath">Cant / Total</span>
+            <span class="ath">Estado</span>
+            <span class="ath ath-right">Acciones</span>
+          </div>
+          
+          @if (filteredOrders().length === 0) {
+            <div class="activity-empty">
+              <mat-icon>shopping_cart</mat-icon>
+              <p>No hay pedidos registrados</p>
+            </div>
+          } @else {
+            @for (order of filteredOrders(); track order.id) {
+              <div class="activity-row">
+                <span class="atd date-col">
+                  {{ order.receivedAt | date:'dd MMM yyyy' }}
+                </span>
+                <span class="atd atd-name">
+                  <div class="product-icon"><mat-icon>inventory_2</mat-icon></div>
+                  {{ order.productName }}
+                </span>
+                <span class="atd text-gray-300">
+                  {{ order.supplierName }}
+                </span>
+                <span class="atd">
+                  <div class="qty-total">
+                    <span class="qty-badge">{{ order.quantity }} un.</span>
+                    <span class="total-text">{{ order.total | currency }}</span>
+                  </div>
+                </span>
+                <span class="atd">
+                  <span class="status-badge" [class.pending]="order.status === 'pending'" [class.completed]="order.status === 'completed'">
                     @if (order.status === 'pending') {
-                      <button 
-                        (click)="sendEmail(order)"
-                        class="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors flex items-center gap-1"
-                        title="Enviar Correo al Proveedor">
-                        <svg lucideMail class="w-4 h-4"></svg>
-                        <span class="text-xs font-medium">Correo</span>
-                      </button>
-                      <button 
-                        (click)="markAsReceived(order)"
-                        class="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors flex items-center gap-1"
-                        title="Marcar como Recibido">
-                        <svg lucideCheckCircle class="w-4 h-4"></svg>
-                        <span class="text-xs font-medium">Recibir</span>
-                      </button>
+                      <mat-icon>schedule</mat-icon> Pendiente
+                    } @else {
+                      <mat-icon>check_circle</mat-icon> Recibido
                     }
-                  </td>
-                </tr>
-              } @empty {
-                <tr>
-                  <td colspan="7" class="p-8 text-center text-gray-500 dark:text-gray-400">
-                    <div class="flex flex-col items-center justify-center space-y-3">
-                      <svg lucideShoppingCart class="w-12 h-12 text-gray-300 dark:text-gray-600"></svg>
-                      <p class="text-lg font-medium">No hay pedidos registrados</p>
-                    </div>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
+                  </span>
+                </span>
+                <span class="atd atd-right action-buttons">
+                  @if (order.status === 'pending') {
+                    <button (click)="sendEmail(order)" class="action-btn email-btn" title="Enviar Correo al Proveedor">
+                      <mat-icon>mail</mat-icon>
+                    </button>
+                    <button (click)="markAsReceived(order)" class="action-btn receive-btn" title="Marcar como Recibido">
+                      <mat-icon>inventory</mat-icon>
+                    </button>
+                  } @else {
+                    <span class="text-gray-500 text-xs italic">Completado</span>
+                  }
+                </span>
+              </div>
+            }
+          }
         </div>
       </div>
     </div>
 
     <!-- Order Form Modal -->
     @if (showForm()) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm animate-fade-in">
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-slide-up">
-          <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h3 class="text-lg font-bold text-gray-900 dark:text-white">Nuevo Pedido</h3>
+      <div class="modal-overlay animate-fade-in">
+        <div class="modal-content animate-slide-up">
+          <div class="modal-header">
+            <h3>Nuevo Pedido</h3>
+            <button (click)="closeForm()" class="close-btn"><mat-icon>close</mat-icon></button>
           </div>
 
-          <form (ngSubmit)="saveOrder()" class="p-6 space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor *</label>
-              <select [(ngModel)]="formData.supplierId" name="supplierId" (change)="onSupplierChange()" required class="input-field">
+          <form (ngSubmit)="saveOrder()" class="modal-body">
+            <div class="form-group">
+              <label>Proveedor *</label>
+              <select [(ngModel)]="formData.supplierId" name="supplierId" (change)="onSupplierChange()" required class="pc-input select-input">
                 <option value="">Seleccione un proveedor</option>
                 @for (sup of dataService.suppliers(); track sup.id) {
                   <option [value]="sup.id">{{ sup.name }}</option>
@@ -157,9 +131,9 @@ import { LucideShoppingCart, LucidePlus, LucideSearch, LucideMail, LucideCheckCi
               </select>
             </div>
 
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Producto *</label>
-              <select [(ngModel)]="formData.productId" name="productId" (change)="onProductChange()" required class="input-field">
+            <div class="form-group">
+              <label>Producto *</label>
+              <select [(ngModel)]="formData.productId" name="productId" (change)="onProductChange()" required class="pc-input select-input">
                 <option value="">Seleccione un producto</option>
                 @for (prod of availableProducts(); track prod.id) {
                   <option [value]="prod.id">{{ prod.name }} ({{ prod.category }})</option>
@@ -167,47 +141,489 @@ import { LucideShoppingCart, LucidePlus, LucideSearch, LucideMail, LucideCheckCi
               </select>
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cantidad *</label>
-                <input type="number" [(ngModel)]="formData.quantity" name="quantity" required min="1" class="input-field" (input)="calculateTotal()">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Cantidad *</label>
+                <input type="number" [(ngModel)]="formData.quantity" name="quantity" required min="1" class="pc-input" (input)="calculateTotal()">
               </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Precio Unitario *</label>
-                <div class="relative">
-                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                  <input type="number" [(ngModel)]="formData.price" name="price" required min="0" step="0.01" class="input-field pl-8" (input)="calculateTotal()">
+              <div class="form-group">
+                <label>Precio Unitario *</label>
+                <div class="input-with-icon">
+                  <span class="prefix">$</span>
+                  <input type="number" [(ngModel)]="formData.price" name="price" required min="0" step="0.01" class="pc-input pl-8" (input)="calculateTotal()">
                 </div>
               </div>
             </div>
 
-            <div class="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl flex justify-between items-center border border-gray-100 dark:border-gray-700">
-              <span class="font-medium text-gray-700 dark:text-gray-300">Total Estimado</span>
-              <span class="text-xl font-bold text-primary-600">{{ formData.total || 0 | currency }}</span>
+            <div class="total-box">
+              <span class="total-label">Total Estimado</span>
+              <span class="total-value">{{ formData.total || 0 | currency }}</span>
             </div>
 
-            <div class="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
-              <button type="button" (click)="closeForm()" class="btn-secondary">
-                Cancelar
-              </button>
+            <div class="modal-footer">
+              <button type="button" (click)="closeForm()" class="btn-secondary">Cancelar</button>
               <button type="submit" class="btn-primary" [disabled]="!isFormValid()">
-                Crear Pedido
+                <mat-icon>send</mat-icon> Crear Pedido
               </button>
             </div>
           </form>
         </div>
       </div>
     }
-  `
+  `,
+  styles: [`
+    .orders-page {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* ---- Header ---- */
+    .page-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .page-header h1 {
+      font-family: var(--pc-font-heading);
+      font-size: 1.8rem;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-icon {
+      font-size: 28px;
+      width: 28px;
+      height: 28px;
+      color: var(--pc-yellow);
+    }
+
+    .page-header p {
+      color: var(--pc-text-muted);
+      font-size: 0.9rem;
+    }
+
+    /* ---- Filters ---- */
+    .filter-section {
+      background: linear-gradient(135deg, rgba(22, 33, 62, 0.7), rgba(26, 26, 46, 0.5));
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--pc-border);
+      border-radius: var(--pc-radius-lg);
+      padding: 16px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .search-box {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      min-width: 200px;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      color: var(--pc-text-muted);
+      font-size: 20px;
+    }
+
+    .search-input {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--pc-border);
+      border-radius: var(--pc-radius-md);
+      padding: 10px 12px 10px 40px;
+      color: var(--pc-text-primary);
+      font-family: var(--pc-font-body);
+      font-size: 0.9rem;
+      transition: all var(--pc-transition-fast);
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--pc-yellow);
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    .pc-select {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--pc-border);
+      border-radius: var(--pc-radius-md);
+      padding: 10px 12px;
+      color: var(--pc-text-primary);
+      font-family: var(--pc-font-body);
+      font-size: 0.9rem;
+      outline: none;
+      transition: all var(--pc-transition-fast);
+    }
+
+    .pc-select:focus {
+      border-color: var(--pc-yellow);
+    }
+
+    .pc-select option {
+      background: var(--pc-bg-sidebar);
+      color: white;
+    }
+
+    /* ---- Activity Table ---- */
+    .activity-section {
+      background: linear-gradient(135deg, rgba(22, 33, 62, 0.7), rgba(26, 26, 46, 0.5));
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--pc-border);
+      border-radius: var(--pc-radius-lg);
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--pc-border);
+    }
+
+    .section-header h3 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      font-family: var(--pc-font-heading);
+    }
+
+    .section-header h3 mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      color: var(--pc-yellow);
+    }
+
+    .view-all-link {
+      color: var(--pc-text-muted);
+      font-size: 0.82rem;
+      font-weight: 500;
+    }
+
+    .activity-header-row {
+      display: grid;
+      grid-template-columns: 0.8fr 1.5fr 1.2fr 1fr 1fr 1fr;
+      padding: 12px 20px;
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .ath {
+      font-size: 0.72rem;
+      color: var(--pc-text-muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .ath-right { text-align: right; }
+
+    .activity-row {
+      display: grid;
+      grid-template-columns: 0.8fr 1.5fr 1.2fr 1fr 1fr 1fr;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--pc-border);
+      align-items: center;
+      transition: background var(--pc-transition-fast);
+    }
+
+    .activity-row:last-child { border-bottom: none; }
+    .activity-row:hover { background: rgba(255, 255, 255, 0.02); }
+
+    .atd { font-size: 0.88rem; color: var(--pc-text-secondary); }
+    .atd-right { text-align: right; }
+
+    .date-col {
+      font-weight: 500;
+      font-size: 0.85rem;
+    }
+
+    .atd-name {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 600;
+      color: var(--pc-text-primary);
+    }
+
+    .product-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: rgba(59, 130, 246, 0.15);
+      color: #60A5FA;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .product-icon mat-icon { font-size: 18px; width: 18px; height: 18px; }
+
+    .qty-total {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .qty-badge {
+      background: rgba(242, 201, 76, 0.12);
+      color: var(--pc-yellow);
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.75rem;
+      display: inline-block;
+      width: fit-content;
+    }
+
+    .total-text {
+      font-weight: 600;
+      color: var(--pc-text-primary);
+    }
+
+    .status-badge {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .status-badge mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+    }
+
+    .status-badge.pending {
+      background: rgba(245, 158, 11, 0.15);
+      color: #FBBF24;
+    }
+
+    .status-badge.completed {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34D399;
+    }
+
+    .action-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .action-btn {
+      background: transparent;
+      border: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all var(--pc-transition-fast);
+      color: var(--pc-text-muted);
+    }
+
+    .action-btn:hover { background: rgba(255, 255, 255, 0.05); }
+    .email-btn:hover { color: #60A5FA; background: rgba(59, 130, 246, 0.1); }
+    .receive-btn:hover { color: #34D399; background: rgba(16, 185, 129, 0.1); }
+
+    .activity-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px;
+      gap: 8px;
+    }
+
+    .activity-empty mat-icon {
+      font-size: 40px;
+      width: 40px;
+      height: 40px;
+      opacity: 0.3;
+    }
+
+    /* ---- Modals ---- */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 15, 26, 0.8);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-content {
+      background: var(--pc-bg-sidebar);
+      border: 1px solid var(--pc-border);
+      border-radius: var(--pc-radius-lg);
+      width: 100%;
+      max-width: 500px;
+      box-shadow: var(--pc-shadow-xl);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--pc-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-header h3 {
+      font-family: var(--pc-font-heading);
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      color: var(--pc-text-muted);
+      cursor: pointer;
+      display: flex;
+      padding: 4px;
+      border-radius: 4px;
+      transition: all var(--pc-transition-fast);
+    }
+
+    .close-btn:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--pc-text-primary);
+    }
+
+    .modal-body {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .form-group label {
+      font-size: 0.85rem;
+      color: var(--pc-text-secondary);
+      font-weight: 500;
+    }
+
+    .pc-input {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--pc-border);
+      border-radius: var(--pc-radius-md);
+      padding: 10px 12px;
+      color: var(--pc-text-primary);
+      font-family: var(--pc-font-body);
+      transition: all var(--pc-transition-fast);
+    }
+
+    .select-input {
+      appearance: none;
+      cursor: pointer;
+    }
+    .select-input option {
+      background: var(--pc-bg-sidebar);
+      color: white;
+    }
+
+    .pc-input:focus {
+      outline: none;
+      border-color: var(--pc-yellow);
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    .input-with-icon {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .prefix {
+      position: absolute;
+      left: 12px;
+      color: var(--pc-text-muted);
+    }
+    
+    .pl-8 { padding-left: 2rem; width: 100%; box-sizing: border-box; }
+
+    .total-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--pc-border);
+      border-radius: var(--pc-radius-md);
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .total-label {
+      color: var(--pc-text-secondary);
+      font-weight: 500;
+    }
+
+    .total-value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--pc-yellow);
+    }
+
+    .modal-footer {
+      padding-top: 24px;
+      margin-top: 8px;
+      border-top: 1px solid var(--pc-border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--pc-border);
+      color: var(--pc-text-primary);
+      padding: 8px 16px;
+      border-radius: var(--pc-radius-md);
+      cursor: pointer;
+      font-weight: 500;
+      transition: all var(--pc-transition-fast);
+    }
+
+    .btn-secondary:hover { background: rgba(255, 255, 255, 0.1); }
+  `]
 })
 export class OrdersComponent {
-
-
-
-
-
-
-
   dataService = inject(DataService);
 
   searchTerm = signal('');

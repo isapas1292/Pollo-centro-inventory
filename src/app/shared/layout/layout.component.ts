@@ -502,9 +502,17 @@ export class LayoutComponent {
 
   private navItems: NavItem[] = [
     { icon: 'dashboard', label: 'Dashboard', route: '/dashboard', permission: 'dashboard.view' },
-    { icon: 'inventory_2', label: 'Inventario', route: '/inventory', permission: 'inventory.view' },
-    { icon: 'local_shipping', label: 'Proveedores', route: '/suppliers', permission: 'suppliers.view' },
-    { icon: 'shopping_cart', label: 'Pedidos', route: '/orders', permission: 'orders.view' },
+    { 
+      icon: 'inventory_2', 
+      label: 'Inventario', 
+      route: '/inventory', 
+      permission: 'inventory.view',
+      children: [
+        { icon: 'inventory', label: 'Gestión', route: '/inventory', permission: 'inventory.view' },
+        { icon: 'local_shipping', label: 'Proveedores', route: '/suppliers', permission: 'suppliers.view' },
+        { icon: 'shopping_cart', label: 'Pedidos', route: '/orders', permission: 'orders.view' }
+      ]
+    },
     { 
       icon: 'assessment', 
       label: 'Reportes', 
