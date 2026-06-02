@@ -25,9 +25,9 @@ interface InventoryActivityItem {
           <h1><mat-icon class="header-icon">history</mat-icon> Actividad de Inventario</h1>
           <p>Supervisa los movimientos, compras y consumo de los productos.</p>
         </div>
-        <button class="btn-primary flex items-center gap-2">
+        <button class="btn-primary">
           <mat-icon>print</mat-icon>
-          Imprimir Reporte
+          <span>Imprimir Reporte</span>
         </button>
       </div>
 
@@ -48,7 +48,7 @@ interface InventoryActivityItem {
 
         <!-- Button -->
         <button class="btn-primary w-full mt-2">
-          View Activity
+          <span>View Activity</span>
         </button>
 
       </div>
@@ -56,7 +56,7 @@ interface InventoryActivityItem {
       <!-- Table -->
       <div class="activity-section mt-4">
         <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse">
+          <table class="text-left border-collapse">
             <thead>
               <tr class="table-header-row">
                 <th class="th-cell">

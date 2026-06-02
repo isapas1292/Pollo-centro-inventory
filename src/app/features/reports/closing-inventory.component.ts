@@ -26,9 +26,9 @@ interface ClosingInventoryItem {
           <h1><mat-icon class="header-icon">list_alt</mat-icon> Cierre de Inventario</h1>
           <p>Consulta y exporta los totales del inventario de todas las sucursales.</p>
         </div>
-        <button class="btn-primary flex items-center gap-2">
+        <button class="btn-primary">
           <mat-icon>download</mat-icon>
-          Export Inventory Totals
+          <span>Export Inventory Totals</span>
         </button>
       </div>
 
@@ -50,7 +50,7 @@ interface ClosingInventoryItem {
       <!-- Table -->
       <div class="activity-section mt-4">
         <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse">
+          <table class="text-left border-collapse">
             <thead>
               <tr class="table-header-row">
                 <th class="th-cell">#</th>
