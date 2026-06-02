@@ -47,7 +47,7 @@ export const LOCATIONS: Location[] = [
   { id: 'loc-worcester', name: 'Pollo Centro - Worcester' },
 ];
 
-export type ProductCategory = 'pollo' | 'insumos' | 'empaque' | 'limpieza' | 'otro';
+export type ProductCategory = string;
 export type ProductUnit = 'kg' | 'lb' | 'unidad' | 'litro' | 'paquete';
 
 export interface Product {

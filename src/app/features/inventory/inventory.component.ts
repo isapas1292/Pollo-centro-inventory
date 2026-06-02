@@ -86,9 +86,9 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
           </div>
           <div class="dropdowns-group">
             <select class="custom-select" [ngModel]="selectedCategory()" (ngModelChange)="selectedCategory.set($event)">
-              <option value="all">Select Category</option>
-              @for (cat of categories.slice(1); track cat.value) {
-                <option [value]="cat.value">{{ cat.label }}</option>
+              <option value="all">Todas las Categorías</option>
+              @for (cat of uniqueCategories(); track cat) {
+                <option [value]="cat">{{ cat }}</option>
               }
             </select>
             
@@ -143,13 +143,14 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
             <div class="table-row" [class.row-critical]="product.currentStock <= product.minStock * 0.5"
                  [class.row-warning]="product.currentStock > product.minStock * 0.5 && product.currentStock <= product.minStock">
               <span class="td td-name">
-                <span class="product-emoji">{{ getCategoryEmoji(product.category) }}</span>
                 <div class="product-name-wrap">
                   <span class="product-name">{{ product.name }}</span>
                 </div>
               </span>
               <span class="td td-category">
-                <span class="category-badge" [attr.data-cat]="product.category">{{ getCategoryLabel(product.category) }}</span>
+                <span class="category-badge" [style.background]="getCategoryColor(product.category).bg" [style.color]="getCategoryColor(product.category).color">
+                  {{ product.category }}
+                </span>
               </span>
               <span class="td td-stock">
                 <div class="stock-visual">
@@ -205,7 +206,7 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
               <button class="page-btn" [disabled]="currentPage() <= 1" (click)="currentPage.set(currentPage() - 1)">
                 <mat-icon>chevron_left</mat-icon>
               </button>
-              @for (page of pages(); track page) {
+              @for (page of visiblePages(); track page) {
                 <button class="page-btn" [class.active]="currentPage() === page" (click)="currentPage.set(page)">
                   {{ page }}
                 </button>
@@ -238,11 +239,9 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
               <div class="form-group">
                 <label>Categoría</label>
                 <select class="form-input" [(ngModel)]="formCategory" id="input-product-category">
-                  <option value="pollo">🍗 Pollo</option>
-                  <option value="insumos">🧂 Insumos</option>
-                  <option value="empaque">📦 Empaque</option>
-                  <option value="limpieza">🧹 Limpieza</option>
-                  <option value="otro">📋 Otro</option>
+                  @for (cat of uniqueCategories(); track cat) {
+                    <option [value]="cat">{{ cat }}</option>
+                  }
                 </select>
               </div>
               <div class="form-group">
@@ -320,7 +319,7 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
   `,
   styles: [`
     .inventory {
-      max-width: 1400px;
+      max-width: 1750px;
       margin: 0 auto;
     }
 
@@ -578,7 +577,7 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
 
     .table-header-row {
       display: grid;
-      grid-template-columns: 2fr 1fr 1.5fr 0.7fr 0.8fr 1fr 0.8fr 1fr 0.8fr;
+      grid-template-columns: 2.2fr 1.3fr 0.8fr 0.6fr 0.7fr 1.5fr 0.7fr 0.8fr 0.7fr;
       padding: 14px 20px;
       border-bottom: 1px solid var(--pc-border);
       background: rgba(0, 0, 0, 0.2);
@@ -594,7 +593,7 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
 
     .table-row {
       display: grid;
-      grid-template-columns: 2fr 1fr 1.5fr 0.7fr 0.8fr 1fr 0.8fr 1fr 0.8fr;
+      grid-template-columns: 2.2fr 1.3fr 0.8fr 0.6fr 0.7fr 1.5fr 0.7fr 0.8fr 0.7fr;
       padding: 14px 20px;
       border-bottom: 1px solid var(--pc-border);
       align-items: center;
@@ -606,7 +605,18 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
     .table-row.row-warning { border-left: 3px solid var(--pc-orange); }
     .table-row.row-critical { border-left: 3px solid var(--pc-red); }
 
-    .td { font-size: 0.88rem; color: var(--pc-text-secondary); }
+    .td { 
+      font-size: 0.88rem; 
+      color: var(--pc-text-secondary); 
+      min-width: 0; /* Ensures text-overflow works in grid */
+    }
+    .td-min { text-align: center; }
+    
+    .td-supplier {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
     .td-name {
       display: flex;
@@ -614,37 +624,30 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
       gap: 10px;
     }
 
-    .product-emoji {
-      font-size: 1.3rem;
-      width: 34px;
-      height: 34px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(255, 255, 255, 0.04);
-      border-radius: var(--pc-radius-sm);
-      flex-shrink: 0;
-    }
-
     .product-name {
       font-weight: 600;
       color: var(--pc-text-primary);
       font-size: 0.88rem;
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
 
     .category-badge {
       font-size: 0.74rem;
-      padding: 3px 10px;
+      padding: 4px 10px;
       border-radius: 12px;
       font-weight: 600;
       background: rgba(255, 255, 255, 0.06);
       color: var(--pc-text-secondary);
+      display: inline-block;
+      text-align: center;
+      line-height: 1.3;
+      word-break: break-word;
+      max-width: 100%;
     }
-
-    .category-badge[data-cat="pollo"] { background: rgba(242, 201, 76, 0.12); color: var(--pc-yellow); }
-    .category-badge[data-cat="insumos"] { background: rgba(59, 130, 246, 0.12); color: #60A5FA; }
-    .category-badge[data-cat="empaque"] { background: rgba(124, 58, 237, 0.12); color: #A78BFA; }
-    .category-badge[data-cat="limpieza"] { background: rgba(67, 160, 71, 0.12); color: #81C784; }
 
     /* Stock Visual */
     .stock-visual {
@@ -1063,14 +1066,10 @@ export class InventoryComponent {
   currentPage = signal(1);
   readonly pageSize = 10;
 
-  categories = [
-    { value: 'all', label: 'Todos' },
-    { value: 'pollo', label: '🍗 Pollo' },
-    { value: 'insumos', label: '🧂 Insumos' },
-    { value: 'empaque', label: '📦 Empaque' },
-    { value: 'limpieza', label: '🧹 Limpieza' },
-    { value: 'otro', label: '📋 Otro' },
-  ];
+  uniqueCategories = computed(() => {
+    const cats = new Set(this.dataService.products().map(p => p.category));
+    return Array.from(cats).sort();
+  });
 
   stockStatuses = [
     { value: 'all', label: 'Todos' },
@@ -1129,6 +1128,16 @@ export class InventoryComponent {
   paginationEnd = computed(() => Math.min(this.paginationStart() + this.pageSize, this.filteredProducts().length));
   paginatedProducts = computed(() => this.filteredProducts().slice(this.paginationStart(), this.paginationEnd()));
   pages = computed(() => Array.from({ length: this.totalPages() }, (_, i) => i + 1));
+  visiblePages = computed(() => {
+    const total = this.totalPages();
+    const current = this.currentPage();
+    let start = Math.max(1, current - 2);
+    let end = Math.min(total, start + 4);
+    if (end - start < 4) {
+      start = Math.max(1, end - 4);
+    }
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  });
 
   // --- Modal state ---
   showModal = signal(false);
@@ -1138,7 +1147,7 @@ export class InventoryComponent {
 
   // --- Form ---
   formName = '';
-  formCategory: ProductCategory = 'pollo';
+  formCategory: string = 'Otro';
   formUnit: ProductUnit = 'kg';
   formStock = 0;
   formMinStock = 0;
@@ -1148,7 +1157,7 @@ export class InventoryComponent {
   openAddModal(): void {
     this.editingProduct.set(null);
     this.formName = '';
-    this.formCategory = 'pollo';
+    this.formCategory = 'Otro';
     this.formUnit = 'kg';
     this.formStock = 0;
     this.formMinStock = 0;
@@ -1242,14 +1251,33 @@ export class InventoryComponent {
     return 'OK';
   }
 
-  getCategoryEmoji(category: string): string {
-    const emojis: Record<string, string> = { pollo: '🍗', insumos: '🧂', empaque: '📦', limpieza: '🧹', otro: '📋' };
-    return emojis[category] || '📋';
-  }
-
-  getCategoryLabel(category: string): string {
-    const labels: Record<string, string> = { pollo: 'Pollo', insumos: 'Insumos', empaque: 'Empaque', limpieza: 'Limpieza', otro: 'Otro' };
-    return labels[category] || category;
+  getCategoryColor(category: string): { bg: string, color: string } {
+    const colorMap: Record<string, {bg: string, color: string}> = {
+      'Aceites y Grasas': { bg: 'rgba(245, 159, 0, 0.12)', color: '#FCC419' },
+      'Bebidas': { bg: 'rgba(59, 130, 246, 0.12)', color: '#60A5FA' },
+      'Carnes y Embutidos': { bg: 'rgba(239, 68, 68, 0.12)', color: '#F87171' },
+      'Condimentos y Salsas': { bg: 'rgba(217, 70, 239, 0.12)', color: '#E879F9' },
+      'Congelados y Picaderas': { bg: 'rgba(6, 182, 212, 0.12)', color: '#22D3EE' },
+      'Desechables y Empaques': { bg: 'rgba(139, 92, 246, 0.12)', color: '#A78BFA' },
+      'Granos, Secos y Enlatados': { bg: 'rgba(217, 119, 6, 0.12)', color: '#FBBF24' },
+      'Hielo': { bg: 'rgba(14, 165, 233, 0.12)', color: '#38BDF8' },
+      'Lácteos': { bg: 'rgba(248, 113, 113, 0.12)', color: '#FCA5A5' },
+      'Limpieza y Químicos': { bg: 'rgba(16, 185, 129, 0.12)', color: '#34D399' },
+      'Pollo y Aves': { bg: 'rgba(242, 201, 76, 0.12)', color: 'var(--pc-yellow)' },
+      'Suministros de Operación': { bg: 'rgba(107, 114, 128, 0.12)', color: '#9CA3AF' },
+      'Utensilios y Equipos': { bg: 'rgba(156, 163, 175, 0.12)', color: '#D1D5DB' },
+      'Vegetales y Víveres': { bg: 'rgba(132, 204, 22, 0.12)', color: '#A3E635' },
+    };
+    
+    if (colorMap[category]) return colorMap[category];
+    
+    // Hash based color for unknown categories
+    const hash = category.split('').reduce((acc, char) => char.charCodeAt(0) + ((acc << 5) - acc), 0);
+    const h = Math.abs(hash) % 360;
+    return {
+      bg: 'hsla(' + h + ', 70%, 50%, 0.12)',
+      color: 'hsl(' + h + ', 80%, 65%)'
+    };
   }
 
   getUnitLabel(unit: string): string {
