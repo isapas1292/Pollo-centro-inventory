@@ -18,9 +18,9 @@ import { MatIconModule } from '@angular/material/icon';
           <p>Gestiona pedidos a proveedores y registra la llegada de mercancía.</p>
         </div>
         <div class="header-actions">
-          <button (click)="openForm()" class="btn-primary flex items-center gap-2">
+          <button (click)="openForm()" class="btn-primary">
             <mat-icon>add</mat-icon>
-            Hacer Pedido
+            <span>Hacer Pedido</span>
           </button>
         </div>
       </div>
@@ -163,7 +163,7 @@ import { MatIconModule } from '@angular/material/icon';
             <div class="modal-footer">
               <button type="button" (click)="closeForm()" class="btn-secondary">Cancelar</button>
               <button type="submit" class="btn-primary" [disabled]="!isFormValid()">
-                <mat-icon>send</mat-icon> Crear Pedido
+                <mat-icon>send</mat-icon> <span>Crear Pedido</span>
               </button>
             </div>
           </form>
@@ -621,6 +621,34 @@ import { MatIconModule } from '@angular/material/icon';
     }
 
     .btn-secondary:hover { background: rgba(255, 255, 255, 0.1); }
+
+    .btn-primary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--pc-yellow);
+      color: #1A1A2E;
+      font-weight: 700;
+      border: none;
+      padding: 10px 20px;
+      border-radius: var(--pc-radius-md);
+      cursor: pointer;
+      transition: all var(--pc-transition-fast);
+      font-size: 0.95rem;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #FBBF24;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(242, 201, 76, 0.2);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      filter: grayscale(1);
+    }
   `]
 })
 export class OrdersComponent {
