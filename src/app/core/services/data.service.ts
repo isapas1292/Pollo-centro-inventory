@@ -1,5 +1,5 @@
 import { Injectable, signal, computed } from '@angular/core';
-import { Product, Recipe, RecipeLog, PriceRecord, StockAlert, AppUser, AuditLog, Employee, ScheduleShift, LOCATIONS } from '../models';
+import { Product, Recipe, RecipeLog, PriceRecord, StockAlert, AppUser, AuditLog, Employee, ScheduleShift, LOCATIONS, Supplier, OrderReception } from '../models';
 
 /**
  * DataService — Simulates a real-time database using localStorage + signals.
@@ -20,6 +20,9 @@ export class DataService {
   private _employees = signal<Employee[]>([]);
   private _schedules = signal<ScheduleShift[]>([]);
 
+  private _suppliers = signal<Supplier[]>([]);
+  private _orderReceptions = signal<OrderReception[]>([]);
+
   // --- Public readonly signals ---
   readonly products = this._products.asReadonly();
   readonly recipes = this._recipes.asReadonly();
@@ -30,6 +33,8 @@ export class DataService {
   readonly auditLogs = this._auditLogs.asReadonly();
   readonly employees = this._employees.asReadonly();
   readonly schedules = this._schedules.asReadonly();
+  readonly suppliers = this._suppliers.asReadonly();
+  readonly orderReceptions = this._orderReceptions.asReadonly();
   readonly locations = LOCATIONS;
 
   // --- Computed signals ---
@@ -374,6 +379,61 @@ export class DataService {
   }
 
   // ==========================================
+  // SUPPLIERS
+  // ==========================================
+  addSupplier(supplier: Omit<Supplier, 'id'>): Supplier {
+    const newSupplier = { ...supplier, id: this.generateId() };
+    this._suppliers.update(list => [...list, newSupplier]);
+    this.persist('pc_suppliers', this._suppliers());
+    return newSupplier;
+  }
+
+  updateSupplier(id: string, updates: Partial<Supplier>): void {
+    this._suppliers.update(list => list.map(s => s.id === id ? { ...s, ...updates } : s));
+    this.persist('pc_suppliers', this._suppliers());
+  }
+
+  deleteSupplier(id: string): void {
+    this._suppliers.update(list => list.filter(s => s.id !== id));
+    this.persist('pc_suppliers', this._suppliers());
+  }
+
+  // ==========================================
+  // ORDER RECEPTIONS
+  // ==========================================
+  addOrderReception(order: Omit<OrderReception, 'id' | 'receivedAt'>): OrderReception {
+    const newOrder: OrderReception = {
+      ...order,
+      id: this.generateId(),
+      receivedAt: new Date(),
+    };
+    this._orderReceptions.update(list => [newOrder, ...list]);
+    this.persist('pc_order_receptions', this._orderReceptions());
+    
+    // Si queremos actualizar el stock (Opcional, pero util si el status es completed)
+    if (newOrder.status === 'completed') {
+       const product = this.getProduct(newOrder.productId);
+       if (product) {
+           this.updateProduct(product.id, { 
+             currentStock: product.currentStock + newOrder.quantity 
+           });
+       }
+    }
+    
+    return newOrder;
+  }
+
+  updateOrderReception(id: string, updates: Partial<OrderReception>): void {
+    this._orderReceptions.update(list => list.map(o => o.id === id ? { ...o, ...updates } : o));
+    this.persist('pc_order_receptions', this._orderReceptions());
+  }
+
+  deleteOrderReception(id: string): void {
+    this._orderReceptions.update(list => list.filter(o => o.id !== id));
+    this.persist('pc_order_receptions', this._orderReceptions());
+  }
+
+  // ==========================================
   // PERSISTENCE
   // ==========================================
   private loadAll(): void {
@@ -386,6 +446,8 @@ export class DataService {
     this._auditLogs.set(this.load('pc_audit_logs'));
     this._employees.set(this.load('pc_employees'));
     this._schedules.set(this.load('pc_schedules'));
+    this._suppliers.set(this.load('pc_suppliers'));
+    this._orderReceptions.set(this.load('pc_order_receptions'));
   }
 
   private load<T>(key: string): T[] {
@@ -408,21 +470,40 @@ export class DataService {
   // DEMO DATA
   // ==========================================
   private seedDemoDataIfEmpty(): void {
+    // Seed Suppliers if empty
+    if (this._suppliers().length === 0) {
+      const demoSuppliers: Omit<Supplier, 'id'>[] = [
+        { name: 'Avícola San Juan', contactName: 'Juan Rodríguez', phone: '555-1001', email: 'ventas@avicolasanjuan.com', active: true },
+        { name: 'Distribuidora de Carnes', contactName: 'Pedro Martínez', phone: '555-1002', email: 'pedidos@districarnes.com', active: true },
+        { name: 'Insumos El Chef', contactName: 'Ana Silva', phone: '555-1003', email: 'contacto@insumoselchef.com', active: true },
+        { name: 'Empaques Modernos', contactName: 'Luis Torres', phone: '555-1004', email: 'ventas@empaques.com', active: true },
+        { name: 'Limpieza Total', contactName: 'Marta Ruiz', phone: '555-1005', email: 'soporte@limpiezatotal.com', active: true },
+      ];
+      demoSuppliers.forEach(s => this.addSupplier(s));
+    }
+
     if (this._products().length > 0) return;
 
+    const suppliers = this._suppliers();
+    
+    const sPollo = suppliers[0];
+    const sInsumos = suppliers[2];
+    const sEmpaque = suppliers[3];
+    const sLimpieza = suppliers[4];
+
     const demoProducts: Omit<Product, 'id' | 'lastUpdated'>[] = [
-      { name: 'Pollo Entero', category: 'pollo', currentStock: 150, unit: 'unidad', minStock: 30, currentPrice: 4.50, createdBy: 'system' },
-      { name: 'Pechuga de Pollo', category: 'pollo', currentStock: 80, unit: 'kg', minStock: 20, currentPrice: 6.20, createdBy: 'system' },
-      { name: 'Muslos de Pollo', category: 'pollo', currentStock: 12, unit: 'kg', minStock: 15, currentPrice: 3.80, createdBy: 'system' },
-      { name: 'Alas de Pollo', category: 'pollo', currentStock: 45, unit: 'kg', minStock: 10, currentPrice: 3.50, createdBy: 'system' },
-      { name: 'Aceite Vegetal', category: 'insumos', currentStock: 25, unit: 'litro', minStock: 10, currentPrice: 2.80, createdBy: 'system' },
-      { name: 'Sal', category: 'insumos', currentStock: 8, unit: 'kg', minStock: 5, currentPrice: 0.50, createdBy: 'system' },
-      { name: 'Pimienta', category: 'insumos', currentStock: 3, unit: 'kg', minStock: 2, currentPrice: 8.00, createdBy: 'system' },
-      { name: 'Harina de Trigo', category: 'insumos', currentStock: 30, unit: 'kg', minStock: 10, currentPrice: 1.20, createdBy: 'system' },
-      { name: 'Cajas Delivery', category: 'empaque', currentStock: 200, unit: 'unidad', minStock: 50, currentPrice: 0.35, createdBy: 'system' },
-      { name: 'Bolsas Plásticas', category: 'empaque', currentStock: 5, unit: 'paquete', minStock: 10, currentPrice: 3.00, createdBy: 'system' },
-      { name: 'Desinfectante', category: 'limpieza', currentStock: 6, unit: 'litro', minStock: 3, currentPrice: 4.50, createdBy: 'system' },
-      { name: 'Guantes Descartables', category: 'limpieza', currentStock: 4, unit: 'paquete', minStock: 5, currentPrice: 5.00, createdBy: 'system' },
+      { name: 'Pollo Entero', category: 'pollo', currentStock: 150, unit: 'unidad', minStock: 30, currentPrice: 4.50, createdBy: 'system', supplierId: sPollo.id, supplierName: sPollo.name },
+      { name: 'Pechuga de Pollo', category: 'pollo', currentStock: 80, unit: 'kg', minStock: 20, currentPrice: 6.20, createdBy: 'system', supplierId: sPollo.id, supplierName: sPollo.name },
+      { name: 'Muslos de Pollo', category: 'pollo', currentStock: 12, unit: 'kg', minStock: 15, currentPrice: 3.80, createdBy: 'system', supplierId: sPollo.id, supplierName: sPollo.name },
+      { name: 'Alas de Pollo', category: 'pollo', currentStock: 45, unit: 'kg', minStock: 10, currentPrice: 3.50, createdBy: 'system', supplierId: sPollo.id, supplierName: sPollo.name },
+      { name: 'Aceite Vegetal', category: 'insumos', currentStock: 25, unit: 'litro', minStock: 10, currentPrice: 2.80, createdBy: 'system', supplierId: sInsumos.id, supplierName: sInsumos.name },
+      { name: 'Sal', category: 'insumos', currentStock: 8, unit: 'kg', minStock: 5, currentPrice: 0.50, createdBy: 'system', supplierId: sInsumos.id, supplierName: sInsumos.name },
+      { name: 'Pimienta', category: 'insumos', currentStock: 3, unit: 'kg', minStock: 2, currentPrice: 8.00, createdBy: 'system', supplierId: sInsumos.id, supplierName: sInsumos.name },
+      { name: 'Harina de Trigo', category: 'insumos', currentStock: 30, unit: 'kg', minStock: 10, currentPrice: 1.20, createdBy: 'system', supplierId: sInsumos.id, supplierName: sInsumos.name },
+      { name: 'Cajas Delivery', category: 'empaque', currentStock: 200, unit: 'unidad', minStock: 50, currentPrice: 0.35, createdBy: 'system', supplierId: sEmpaque.id, supplierName: sEmpaque.name },
+      { name: 'Bolsas Plásticas', category: 'empaque', currentStock: 5, unit: 'paquete', minStock: 10, currentPrice: 3.00, createdBy: 'system', supplierId: sEmpaque.id, supplierName: sEmpaque.name },
+      { name: 'Desinfectante', category: 'limpieza', currentStock: 6, unit: 'litro', minStock: 3, currentPrice: 4.50, createdBy: 'system', supplierId: sLimpieza.id, supplierName: sLimpieza.name },
+      { name: 'Guantes Descartables', category: 'limpieza', currentStock: 4, unit: 'paquete', minStock: 5, currentPrice: 5.00, createdBy: 'system', supplierId: sLimpieza.id, supplierName: sLimpieza.name },
     ];
 
     const products = demoProducts.map(p => this.addProduct(p));

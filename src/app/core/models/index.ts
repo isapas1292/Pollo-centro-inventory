@@ -60,6 +60,8 @@ export interface Product {
   currentPrice: number;
   lastUpdated: Date;
   createdBy: string;
+  supplierId?: string;
+  supplierName?: string;
 }
 
 export interface RecipeIngredient {
@@ -121,6 +123,30 @@ export interface AuditLog {
   timestamp: Date;
 }
 
+export interface Supplier {
+  id: string;
+  name: string;
+  contactName?: string;
+  phone?: string;
+  email?: string;
+  active: boolean;
+  notes?: string;
+}
+
+export interface OrderReception {
+  id: string;
+  supplierId: string;
+  supplierName: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  price: number;
+  total: number;
+  receivedAt: Date;
+  receivedBy: string;
+  status: 'pending' | 'completed' | 'cancelled';
+}
+
 // Permission matrix
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   master: [
@@ -133,6 +159,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'alerts.view', 'alerts.configure',
     'users.view', 'users.create', 'users.edit', 'users.delete',
     'audit.view',
+    'suppliers.view', 'suppliers.edit', 'suppliers.create', 'suppliers.delete',
+    'orders.view', 'orders.create', 'orders.edit',
   ],
   manager: [
     'dashboard.view',
@@ -143,6 +171,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'schedule.view', 'schedule.edit',
     'alerts.view', 'alerts.configure',
     'audit.view',
+    'suppliers.view', 'suppliers.create',
+    'orders.view', 'orders.create',
   ],
   operations: [
     'dashboard.view',
@@ -152,6 +182,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'reports.view',
     'schedule.view',
     'alerts.view',
+    'suppliers.view',
+    'orders.view',
   ],
 };
 

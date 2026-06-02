@@ -22,7 +22,13 @@ export const routes: Routes = [
       },
       { 
         path: 'reports', 
-        loadComponent: () => import('./features/reports/reports.component').then(m => m.ReportsComponent) 
+        loadComponent: () => import('./features/reports/reports.component').then(m => m.ReportsComponent),
+        children: [
+          { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+          { path: 'dashboard', loadComponent: () => import('./features/reports/reports-dashboard.component').then(m => m.ReportsDashboardComponent) },
+          { path: 'closing-inventory', loadComponent: () => import('./features/reports/closing-inventory.component').then(m => m.ClosingInventoryComponent) },
+          { path: 'inventory-activity', loadComponent: () => import('./features/reports/inventory-activity.component').then(m => m.InventoryActivityComponent) }
+        ]
       },
       { 
         path: 'schedule', 
@@ -50,6 +56,14 @@ export const routes: Routes = [
       { 
         path: 'alerts', 
         loadComponent: () => import('./features/alerts/alerts.component').then(m => m.AlertsComponent) 
+      },
+      { 
+        path: 'suppliers', 
+        loadComponent: () => import('./features/suppliers/suppliers.component').then(m => m.SuppliersComponent) 
+      },
+      { 
+        path: 'orders', 
+        loadComponent: () => import('./features/orders/orders.component').then(m => m.OrdersComponent) 
       },
       { 
         path: 'users', 

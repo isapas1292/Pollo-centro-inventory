@@ -11,7 +11,7 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { DataService } from '../../core/services/data.service';
 import { AuthService } from '../../core/services/auth.service';
-import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS } from '../../core/models';
+import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Supplier, Location } from '../../core/models';
 
 @Component({
   selector: 'app-inventory',
@@ -78,7 +78,37 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS } f
 
       <!-- Filters -->
       <div class="filters-bar animate-fade-in-up">
-        <div class="search-wrap">
+        <div class="filter-row-top">
+          <div class="date-info">
+            <span class="date-text">{{ currentDate() | date:'MM/dd/yyyy' }}</span>
+            <span class="total-text">Total: {{ totalValue() | currency }}</span>
+            <span class="alert-text"><mat-icon>help</mat-icon> Stock Bajo: {{ lowStockCount() }}</span>
+          </div>
+          <div class="dropdowns-group">
+            <select class="custom-select" [ngModel]="selectedCategory()" (ngModelChange)="selectedCategory.set($event)">
+              <option value="all">Select Category</option>
+              @for (cat of categories.slice(1); track cat.value) {
+                <option [value]="cat.value">{{ cat.label }}</option>
+              }
+            </select>
+            
+            <select class="custom-select" [ngModel]="selectedLocation()" (ngModelChange)="selectedLocation.set($event)">
+              <option value="all">Select Location</option>
+              @for (loc of dataService.locations; track loc.id) {
+                <option [value]="loc.id">{{ loc.name }}</option>
+              }
+            </select>
+
+            <select class="custom-select" [ngModel]="selectedVendor()" (ngModelChange)="selectedVendor.set($event)">
+              <option value="all">Select Vendor</option>
+              @for (sup of dataService.suppliers(); track sup.id) {
+                <option [value]="sup.id">{{ sup.name }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <div class="search-wrap mt-3">
           <mat-icon class="search-icon">search</mat-icon>
           <input type="text"
                  class="search-input"
@@ -86,28 +116,6 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS } f
                  [ngModel]="searchQuery()"
                  (ngModelChange)="searchQuery.set($event)"
                  id="search-product">
-        </div>
-        <div class="filter-chips">
-          <span class="filter-label">Categoría:</span>
-          @for (cat of categories; track cat.value) {
-            <button class="filter-chip"
-                    [class.active]="selectedCategory() === cat.value"
-                    (click)="selectedCategory.set(cat.value)"
-                    [id]="'filter-cat-' + cat.value">
-              {{ cat.label }}
-            </button>
-          }
-        </div>
-        <div class="filter-chips">
-          <span class="filter-label">Estado:</span>
-          @for (status of stockStatuses; track status.value) {
-            <button class="filter-chip"
-                    [class.active]="selectedStatus() === status.value"
-                    (click)="selectedStatus.set(status.value)"
-                    [id]="'filter-status-' + status.value">
-              {{ status.label }}
-            </button>
-          }
         </div>
       </div>
 
@@ -119,6 +127,7 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS } f
           <span class="th th-stock">Stock Actual</span>
           <span class="th th-min">Mínimo</span>
           <span class="th th-unit">Unidad</span>
+          <span class="th th-supplier">Proveedor</span>
           <span class="th th-price">Precio</span>
           <span class="th th-updated">Actualizado</span>
           <span class="th th-actions">Acciones</span>
@@ -167,6 +176,7 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS } f
               </span>
               <span class="td td-min">{{ product.minStock }}</span>
               <span class="td td-unit">{{ getUnitLabel(product.unit) }}</span>
+              <span class="td td-supplier">{{ product.supplierName || '-' }}</span>
               <span class="td td-price">\${{ product.currentPrice.toFixed(2) }}</span>
               <span class="td td-updated">{{ formatDate(product.lastUpdated) }}</span>
               <span class="td td-actions">
@@ -256,9 +266,20 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS } f
                 <input type="number" class="form-input" [(ngModel)]="formMinStock" min="0" id="input-product-minstock">
               </div>
             </div>
-            <div class="form-group">
-              <label>Precio Actual (\$)</label>
-              <input type="number" class="form-input" [(ngModel)]="formPrice" min="0" step="0.01" id="input-product-price">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Precio Actual (\$)</label>
+                <input type="number" class="form-input" [(ngModel)]="formPrice" min="0" step="0.01" id="input-product-price">
+              </div>
+              <div class="form-group">
+                <label>Proveedor</label>
+                <select class="form-input" [(ngModel)]="formSupplierId">
+                  <option value="">Seleccionar Proveedor</option>
+                  @for (sup of dataService.suppliers(); track sup.id) {
+                    <option [value]="sup.id">{{ sup.name }}</option>
+                  }
+                </select>
+              </div>
             </div>
           </div>
           <div class="modal-footer">
@@ -409,16 +430,65 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS } f
       margin-top: 2px;
     }
 
-    /* ---- Filters ---- */
     .filters-bar {
-      background: linear-gradient(135deg, rgba(22, 33, 62, 0.6), rgba(26, 26, 46, 0.4));
+      background: #f8fafc;
       border: 1px solid var(--pc-border);
       border-radius: var(--pc-radius-lg);
       padding: 16px 20px;
       margin-bottom: 20px;
+    }
+    .dark .filters-bar {
+      background: linear-gradient(135deg, rgba(22, 33, 62, 0.6), rgba(26, 26, 46, 0.4));
+    }
+
+    .filter-row-top {
       display: flex;
-      flex-direction: column;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .date-info {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+    
+    .date-text { color: #3B82F6; }
+    .total-text { color: #3B82F6; }
+    .alert-text { color: #10B981; display: flex; align-items: center; gap: 4px; }
+    .alert-text mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+    .dropdowns-group {
+      display: flex;
       gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .custom-select {
+      appearance: none;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
+      padding: 6px 32px 6px 12px;
+      font-size: 0.85rem;
+      color: #3B82F6;
+      font-weight: 500;
+      outline: none;
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%233B82F6'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 16px;
+      min-width: 140px;
+    }
+    .dark .custom-select {
+      background-color: var(--pc-bg-input);
+      border-color: var(--pc-border);
+      color: var(--pc-text-primary);
     }
 
     .search-wrap {
@@ -504,7 +574,7 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS } f
 
     .table-header-row {
       display: grid;
-      grid-template-columns: 2fr 1fr 1.5fr 0.7fr 0.8fr 0.8fr 1fr 0.8fr;
+      grid-template-columns: 2fr 1fr 1.5fr 0.7fr 0.8fr 1fr 0.8fr 1fr 0.8fr;
       padding: 14px 20px;
       border-bottom: 1px solid var(--pc-border);
       background: rgba(0, 0, 0, 0.2);
@@ -520,7 +590,7 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS } f
 
     .table-row {
       display: grid;
-      grid-template-columns: 2fr 1fr 1.5fr 0.7fr 0.8fr 0.8fr 1fr 0.8fr;
+      grid-template-columns: 2fr 1fr 1.5fr 0.7fr 0.8fr 1fr 0.8fr 1fr 0.8fr;
       padding: 14px 20px;
       border-bottom: 1px solid var(--pc-border);
       align-items: center;
@@ -976,13 +1046,16 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS } f
 export class InventoryComponent {
   constructor(
     public auth: AuthService,
-    private dataService: DataService
+    public dataService: DataService
   ) {}
 
   // --- Filters ---
+  currentDate = signal(new Date());
   searchQuery = signal('');
   selectedCategory = signal<string>('all');
-  selectedStatus = signal<string>('all');
+  selectedLocation = signal<string>('all');
+  selectedVendor = signal<string>('all');
+  selectedStatus = signal<string>('all'); // Keeping this internal or accessible if needed
   currentPage = signal(1);
   readonly pageSize = 10;
 
@@ -1013,6 +1086,7 @@ export class InventoryComponent {
     let products = this.dataService.products();
     const query = this.searchQuery().toLowerCase();
     const cat = this.selectedCategory();
+    const vendor = this.selectedVendor();
     const status = this.selectedStatus();
 
     if (query) {
@@ -1020,6 +1094,9 @@ export class InventoryComponent {
     }
     if (cat !== 'all') {
       products = products.filter(p => p.category === cat);
+    }
+    if (vendor !== 'all') {
+      products = products.filter(p => p.supplierId === vendor);
     }
     if (status === 'ok') {
       products = products.filter(p => p.currentStock > p.minStock);
@@ -1036,6 +1113,8 @@ export class InventoryComponent {
   _ = effect(() => {
     this.searchQuery();
     this.selectedCategory();
+    this.selectedVendor();
+    this.selectedLocation();
     this.selectedStatus();
     this.currentPage.set(1);
   });
@@ -1060,6 +1139,7 @@ export class InventoryComponent {
   formStock = 0;
   formMinStock = 0;
   formPrice = 0;
+  formSupplierId = '';
 
   openAddModal(): void {
     this.editingProduct.set(null);
@@ -1069,6 +1149,7 @@ export class InventoryComponent {
     this.formStock = 0;
     this.formMinStock = 0;
     this.formPrice = 0;
+    this.formSupplierId = '';
     this.showModal.set(true);
   }
 
@@ -1080,6 +1161,7 @@ export class InventoryComponent {
     this.formStock = product.currentStock;
     this.formMinStock = product.minStock;
     this.formPrice = product.currentPrice;
+    this.formSupplierId = product.supplierId || '';
     this.showModal.set(true);
   }
 
@@ -1094,6 +1176,8 @@ export class InventoryComponent {
 
   saveProduct(): void {
     if (!this.isFormValid()) return;
+    
+    const supplier = this.dataService.suppliers().find(s => s.id === this.formSupplierId);
 
     const existing = this.editingProduct();
     if (existing) {
@@ -1104,6 +1188,8 @@ export class InventoryComponent {
         currentStock: this.formStock,
         minStock: this.formMinStock,
         currentPrice: this.formPrice,
+        supplierId: supplier?.id || undefined,
+        supplierName: supplier?.name || undefined,
       });
     } else {
       this.dataService.addProduct({
@@ -1114,6 +1200,8 @@ export class InventoryComponent {
         minStock: this.formMinStock,
         currentPrice: this.formPrice,
         createdBy: this.auth.userName(),
+        supplierId: supplier?.id,
+        supplierName: supplier?.name,
       });
     }
 
