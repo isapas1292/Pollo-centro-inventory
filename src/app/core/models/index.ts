@@ -1,6 +1,6 @@
 // Core data models for Pollo Centro Inventory System
 
-export type UserRole = 'master' | 'manager' | 'operations';
+export type UserRole = 'admin' | 'manager' | 'operations';
 
 export interface AppUser {
   uid: string;
@@ -149,7 +149,7 @@ export interface OrderReception {
 
 // Permission matrix
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
-  master: [
+  admin: [
     'dashboard.view',
     'inventory.view', 'inventory.edit', 'inventory.create', 'inventory.delete',
     'recipes.view', 'recipes.create', 'recipes.prepare', 'recipes.delete',
