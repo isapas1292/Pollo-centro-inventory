@@ -28,7 +28,7 @@ import { AppUser, UserRole } from '../../core/models';
         @for (user of users(); track user.uid) {
           <div class="user-card animate-fade-in-up" [class.inactive]="!user.active">
             <div class="user-header">
-              <div class="user-avatar" [class.bg-admin]="user.role === 'admin'" [class.bg-manager]="user.role === 'manager'" [class.bg-ops]="user.role === 'operations'">
+              <div class="user-avatar" [class.bg-master]="user.role === 'master'" [class.bg-manager]="user.role === 'manager'" [class.bg-ops]="user.role === 'operations'">
                 {{ user.displayName.charAt(0).toUpperCase() }}
               </div>
               <div class="user-actions">
@@ -42,7 +42,7 @@ import { AppUser, UserRole } from '../../core/models';
               <p class="user-email">{{ user.email }}</p>
               
               <div class="user-badges">
-                <span class="role-badge" [class.bg-admin]="user.role === 'admin'" [class.bg-manager]="user.role === 'manager'" [class.bg-ops]="user.role === 'operations'">
+                <span class="role-badge" [class.bg-master]="user.role === 'master'" [class.bg-manager]="user.role === 'manager'" [class.bg-ops]="user.role === 'operations'">
                   <mat-icon>shield</mat-icon> {{ getRoleLabel(user.role) }}
                 </span>
                 <span class="status-badge" [class.status-active]="user.active" [class.status-inactive]="!user.active">
@@ -96,7 +96,7 @@ import { AppUser, UserRole } from '../../core/models';
                   <select [(ngModel)]="form.role" class="pc-select">
                     <option value="operations">Operaciones (Limitado)</option>
                     <option value="manager">Manager (Gestión)</option>
-                    <option value="admin">Admin (Todo el acceso)</option>
+                    <option value="master">Master (Todo el acceso)</option>
                   </select>
                 </div>
                 
@@ -159,7 +159,7 @@ import { AppUser, UserRole } from '../../core/models';
       width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
       font-size: 1.5rem; font-weight: 700; color: white;
     }
-    .bg-admin { background: linear-gradient(135deg, #EF4444, #B91C1C); }
+    .bg-master { background: linear-gradient(135deg, #EF4444, #B91C1C); }
     .bg-manager { background: linear-gradient(135deg, #3B82F6, #1D4ED8); }
     .bg-ops { background: linear-gradient(135deg, #10B981, #047857); }
 
@@ -238,7 +238,7 @@ export class UsersComponent {
 
   getRoleLabel(role: string): string {
     const labels: Record<string, string> = {
-      admin: 'Admin',
+      master: 'Master',
       manager: 'Manager',
       operations: 'Operaciones',
     };
