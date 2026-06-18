@@ -46,6 +46,7 @@ public static class DatabaseInitializer
         await SeedAlertasAsync(db, ct);
         await SeedRecepcionesAsync(db, ct);
         await SeedAuditoriaAsync(db, ct);
+        await SeedContabilidadAsync(db, ct);
 
         logger.LogInformation("Siembra de datos de demostración completada.");
     }
@@ -128,6 +129,30 @@ CREATE TABLE dbo.Recepciones (
     FechaRecepcion DATETIME NOT NULL DEFAULT(getdate()),
     RecibidoPor VARCHAR(150) NULL,
     Estado VARCHAR(20) NOT NULL DEFAULT('completed')
+);
+IF OBJECT_ID(N'dbo.CuentasContables', N'U') IS NULL
+CREATE TABLE dbo.CuentasContables (
+    IdCuenta INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    Codigo VARCHAR(20) NOT NULL,
+    Nombre VARCHAR(150) NOT NULL,
+    Tipo VARCHAR(20) NOT NULL,
+    Descripcion VARCHAR(255) NULL,
+    Estado BIT NOT NULL DEFAULT(1)
+);
+IF OBJECT_ID(N'dbo.TransaccionesContables', N'U') IS NULL
+CREATE TABLE dbo.TransaccionesContables (
+    IdTransaccion INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    Fecha DATETIME NOT NULL,
+    Tipo VARCHAR(20) NOT NULL,
+    IdCuenta INT NOT NULL,
+    CuentaNombre VARCHAR(150) NOT NULL,
+    Monto DECIMAL(12,2) NOT NULL,
+    Descripcion VARCHAR(255) NULL,
+    MetodoPago VARCHAR(30) NULL,
+    Referencia VARCHAR(60) NULL,
+    Contacto VARCHAR(150) NULL,
+    RegistradoPor VARCHAR(150) NULL,
+    FechaRegistro DATETIME NOT NULL DEFAULT(getdate())
 );";
 
     private static Task EnsureTablesAsync(AppDbContext db, CancellationToken ct)
@@ -363,6 +388,89 @@ CREATE TABLE dbo.Recepciones (
             new() { IdUsuario = "1", UsuarioNombre = "Admin Sistema", Accion = "orders.create", Detalles = "Registró una recepción", FechaHora = DateTime.Now.AddHours(-2) },
         };
         db.Auditorias.AddRange(entradas);
+        await db.SaveChangesAsync(ct);
+    }
+
+    // ------------------------------------------------------------------ contabilidad
+    private static async Task SeedContabilidadAsync(AppDbContext db, CancellationToken ct)
+    {
+        if (await db.CuentasContables.AnyAsync(ct)) return;
+
+        var cuentas = new List<CuentaContable>
+        {
+            new() { Codigo = "1000", Nombre = "Caja", Tipo = "Activo" },
+            new() { Codigo = "1010", Nombre = "Banco", Tipo = "Activo" },
+            new() { Codigo = "2000", Nombre = "Cuentas por Pagar", Tipo = "Pasivo" },
+            new() { Codigo = "2100", Nombre = "ITBIS por Pagar", Tipo = "Pasivo" },
+            new() { Codigo = "3000", Nombre = "Capital", Tipo = "Capital" },
+            new() { Codigo = "4000", Nombre = "Ventas de Comida", Tipo = "Ingreso" },
+            new() { Codigo = "4010", Nombre = "Ventas de Bebidas", Tipo = "Ingreso" },
+            new() { Codigo = "4020", Nombre = "Ventas por Delivery", Tipo = "Ingreso" },
+            new() { Codigo = "4090", Nombre = "Otros Ingresos", Tipo = "Ingreso" },
+            new() { Codigo = "5000", Nombre = "Compras de Mercancía", Tipo = "Gasto" },
+            new() { Codigo = "6000", Nombre = "Salarios y Sueldos", Tipo = "Gasto" },
+            new() { Codigo = "6100", Nombre = "Renta del Local", Tipo = "Gasto" },
+            new() { Codigo = "6200", Nombre = "Servicios (Luz, Agua, Gas)", Tipo = "Gasto" },
+            new() { Codigo = "6300", Nombre = "Marketing y Publicidad", Tipo = "Gasto" },
+            new() { Codigo = "6400", Nombre = "Mantenimiento", Tipo = "Gasto" },
+            new() { Codigo = "6500", Nombre = "Suministros y Empaques", Tipo = "Gasto" },
+            new() { Codigo = "6600", Nombre = "Impuestos (ITBIS/DGII)", Tipo = "Gasto" },
+            new() { Codigo = "6900", Nombre = "Otros Gastos", Tipo = "Gasto" },
+        };
+        db.CuentasContables.AddRange(cuentas);
+        await db.SaveChangesAsync(ct);
+
+        var byCode = cuentas.ToDictionary(c => c.Codigo);
+        var rnd = new Random(99);
+        string[] pagos = ["efectivo", "tarjeta", "transferencia"];
+        string[] proveedores = ["Gordon", "Col Fresh", "Alimentos Austra", "Main Commissary"];
+        var txs = new List<TransaccionContable>();
+
+        void Add(string code, string tipo, decimal monto, int daysAgo, string desc,
+                 string? contacto = null, string? metodo = null, string? referencia = null)
+        {
+            var c = byCode[code];
+            txs.Add(new TransaccionContable
+            {
+                Fecha = DateTime.Now.Date.AddDays(-daysAgo).AddHours(rnd.Next(8, 20)),
+                Tipo = tipo,
+                IdCuenta = c.IdCuenta,
+                CuentaNombre = c.Nombre,
+                Monto = monto,
+                Descripcion = desc,
+                MetodoPago = metodo ?? pagos[rnd.Next(pagos.Length)],
+                Referencia = referencia,
+                Contacto = contacto,
+                RegistradoPor = "admin",
+                FechaRegistro = DateTime.Now
+            });
+        }
+
+        // Ingresos: ventas a lo largo de ~60 días.
+        for (var d = 60; d >= 0; d -= 3)
+        {
+            Add("4000", "ingreso", rnd.Next(15000, 45000), d, "Ventas de comida del día");
+            if (rnd.NextDouble() < 0.85) Add("4010", "ingreso", rnd.Next(3000, 9000), d, "Ventas de bebidas");
+            if (rnd.NextDouble() < 0.5) Add("4020", "ingreso", rnd.Next(4000, 12000), d, "Ventas por delivery");
+        }
+
+        // Gastos recurrentes y variables.
+        Add("6100", "gasto", 45000, 55, "Renta mensual del local", "Inmobiliaria Central", "transferencia", "RENT-05");
+        Add("6100", "gasto", 45000, 25, "Renta mensual del local", "Inmobiliaria Central", "transferencia", "RENT-06");
+        foreach (var d in new[] { 52, 38, 24, 10 })
+            Add("6000", "gasto", rnd.Next(55000, 70000), d, "Nómina quincenal", "Personal", "transferencia");
+        Add("6200", "gasto", rnd.Next(9000, 15000), 50, "Factura de electricidad", "EDESUR", "transferencia");
+        Add("6200", "gasto", rnd.Next(9000, 15000), 20, "Factura de electricidad y agua", "EDESUR", "transferencia");
+        foreach (var d in new[] { 58, 48, 40, 33, 27, 18, 12, 5 })
+            Add("5000", "gasto", rnd.Next(8000, 30000), d, "Compra de mercancía", proveedores[rnd.Next(proveedores.Length)]);
+        Add("6300", "gasto", 5000, 44, "Publicidad en redes sociales");
+        Add("6300", "gasto", 7500, 15, "Volantes y promoción");
+        foreach (var d in new[] { 49, 35, 22, 8 })
+            Add("6500", "gasto", rnd.Next(3000, 8000), d, "Compra de empaques y suministros");
+        Add("6600", "gasto", rnd.Next(12000, 20000), 30, "Pago de ITBIS", "DGII", "transferencia", "ITBIS-05");
+        Add("6400", "gasto", rnd.Next(3000, 9000), 28, "Reparación de equipo de cocina");
+
+        db.TransaccionesContables.AddRange(txs);
         await db.SaveChangesAsync(ct);
     }
 

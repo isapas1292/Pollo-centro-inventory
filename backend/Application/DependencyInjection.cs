@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using PolloCentro.Api.Application.Accounting;
 using PolloCentro.Api.Application.Alerts;
 using PolloCentro.Api.Application.Audit;
 using PolloCentro.Api.Application.Auth;
@@ -29,6 +30,8 @@ public static class DependencyInjection
         services.AddScoped<IAlertService, AlertService>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IAuditService, AuditService>();
+        services.AddScoped<IAccountService, AccountService>();
+        services.AddScoped<ITransactionService, TransactionService>();
         return services;
     }
 }

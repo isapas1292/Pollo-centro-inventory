@@ -23,6 +23,8 @@ public interface IApplicationDbContext
     DbSet<Alerta> Alertas { get; }
     DbSet<Auditoria> Auditorias { get; }
     DbSet<Recepcion> Recepciones { get; }
+    DbSet<CuentaContable> CuentasContables { get; }
+    DbSet<TransaccionContable> TransaccionesContables { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
