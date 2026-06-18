@@ -23,6 +23,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<Recepcion> Recepciones => Set<Recepcion>();
     public DbSet<CuentaContable> CuentasContables => Set<CuentaContable>();
     public DbSet<TransaccionContable> TransaccionesContables => Set<TransaccionContable>();
+    public DbSet<Local> Locales => Set<Local>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

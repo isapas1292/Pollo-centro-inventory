@@ -25,6 +25,8 @@ public class TransaccionContableConfiguration : IEntityTypeConfiguration<Transac
         b.ToTable("TransaccionesContables");
         b.HasKey(t => t.IdTransaccion);
         b.Property(t => t.Tipo).HasMaxLength(20).IsRequired();
+        b.Property(t => t.UbicacionId).HasMaxLength(50);
+        b.Property(t => t.UbicacionNombre).HasMaxLength(150);
         b.Property(t => t.CuentaNombre).HasMaxLength(150).IsRequired();
         b.Property(t => t.Monto).HasPrecision(12, 2);
         b.Property(t => t.Descripcion).HasMaxLength(255);
@@ -37,5 +39,6 @@ public class TransaccionContableConfiguration : IEntityTypeConfiguration<Transac
         b.HasIndex(t => t.Fecha);
         b.HasIndex(t => t.IdCuenta);
         b.HasIndex(t => t.Tipo);
+        b.HasIndex(t => t.UbicacionId);
     }
 }

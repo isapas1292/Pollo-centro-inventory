@@ -20,6 +20,18 @@ import { Transaction, TransactionType, PAYMENT_METHODS } from '../../core/models
         <button class="btn-primary" (click)="openModal()"><mat-icon>add</mat-icon> Nueva Transacción</button>
       </div>
 
+      <!-- Selector de local + exportación -->
+      <div class="toolbar">
+        <div class="local-select">
+          <mat-icon>store</mat-icon>
+          <select [value]="selectedLocal()" (change)="onLocal($event)">
+            <option value="all">Todos los locales (consolidado)</option>
+            @for (loc of locations(); track loc.id) { <option [value]="loc.id">{{ loc.name }}</option> }
+          </select>
+        </div>
+        <button class="btn-excel" (click)="exportExcel()"><mat-icon>download</mat-icon> Exportar a Excel</button>
+      </div>
+
       <!-- Filtros -->
       <div class="filters">
         <button class="chip" [class.active]="filter() === 'todos'" (click)="filter.set('todos')">Todos</button>
@@ -31,12 +43,13 @@ import { Transaction, TransactionType, PAYMENT_METHODS } from '../../core/models
         <div class="table-wrap">
           <table class="data-table">
             <thead>
-              <tr><th>Fecha</th><th>Cuenta</th><th>Descripción</th><th>Método</th><th>Tipo</th><th class="right">Monto</th><th></th></tr>
+              <tr><th>Fecha</th><th>Local</th><th>Cuenta</th><th>Descripción</th><th>Método</th><th>Tipo</th><th class="right">Monto</th><th></th></tr>
             </thead>
             <tbody>
               @for (t of filtered(); track t.id) {
                 <tr>
                   <td>{{ t.date | date:'dd/MM/yyyy' }}</td>
+                  <td class="muted">{{ t.localName }}</td>
                   <td>{{ t.accountName }}</td>
                   <td class="muted">{{ t.description }}<span *ngIf="t.contact"> · {{ t.contact }}</span></td>
                   <td class="muted">{{ t.paymentMethod }}</td>
@@ -54,7 +67,7 @@ import { Transaction, TransactionType, PAYMENT_METHODS } from '../../core/models
                   </td>
                 </tr>
               } @empty {
-                <tr><td colspan="7" class="empty">No hay transacciones registradas.</td></tr>
+                <tr><td colspan="8" class="empty">No hay transacciones registradas.</td></tr>
               }
             </tbody>
           </table>
@@ -76,6 +89,13 @@ import { Transaction, TransactionType, PAYMENT_METHODS } from '../../core/models
                 <button [class.on-out]="form.type === 'gasto'" (click)="setType('gasto')">
                   <mat-icon>trending_down</mat-icon> Gasto
                 </button>
+              </div>
+
+              <div class="form-group">
+                <label>Local / Negocio</label>
+                <select [(ngModel)]="form.localId" class="pc-select">
+                  @for (loc of locations(); track loc.id) { <option [value]="loc.id">{{ loc.name }}</option> }
+                </select>
               </div>
 
               <div class="form-row">
@@ -142,6 +162,15 @@ import { Transaction, TransactionType, PAYMENT_METHODS } from '../../core/models
     .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-secondary { background: rgba(255,255,255,0.05); color: var(--pc-text-primary); border: 1px solid var(--pc-border); padding: 10px 20px; border-radius: var(--pc-radius-md); font-weight: 500; cursor: pointer; }
 
+    .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .local-select { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--pc-border); border-radius: var(--pc-radius-md); padding: 4px 12px; }
+    .local-select mat-icon { color: var(--pc-yellow); font-size: 20px; width: 20px; height: 20px; }
+    .local-select select { background: transparent; border: none; color: var(--pc-text-primary); font-family: var(--pc-font-body); font-size: 0.9rem; padding: 8px 4px; outline: none; cursor: pointer; }
+    .local-select select option { background: var(--pc-bg-sidebar); }
+    .btn-excel { display: flex; align-items: center; gap: 8px; background: rgba(16,185,129,0.12); color: #34D399; border: 1px solid rgba(16,185,129,0.3); padding: 9px 18px; border-radius: var(--pc-radius-md); font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn-excel:hover { background: rgba(16,185,129,0.2); }
+    .btn-excel mat-icon { font-size: 18px; width: 18px; height: 18px; }
+
     .filters { display: flex; gap: 8px; margin-bottom: 16px; }
     .chip { background: rgba(255,255,255,0.04); border: 1px solid var(--pc-border); color: var(--pc-text-secondary); padding: 6px 16px; border-radius: 20px; cursor: pointer; font-size: 0.82rem; transition: all 0.2s; }
     .chip.active { background: rgba(242,201,76,0.12); color: var(--pc-yellow); border-color: var(--pc-yellow); }
@@ -193,6 +222,8 @@ export class TransactionsComponent {
 
   transactions = this.accounting.transactions;
   accounts = this.accounting.accounts;
+  locations = this.accounting.locations;
+  selectedLocal = this.accounting.selectedLocal;
   paymentMethods = PAYMENT_METHODS;
 
   filter = signal<'todos' | 'ingreso' | 'gasto'>('todos');
@@ -213,9 +244,23 @@ export class TransactionsComponent {
     return list.length ? list : this.accounts().filter(a => a.active);
   }
 
+  onLocal(e: Event) {
+    this.accounting.setLocal((e.target as HTMLSelectElement).value);
+  }
+
+  exportExcel() {
+    this.accounting.exportExcel();
+  }
+
+  private defaultLocalId() {
+    const sel = this.selectedLocal();
+    return sel && sel !== 'all' ? sel : (this.locations()[0]?.id ?? '');
+  }
+
   private blankForm() {
     return {
       type: 'gasto' as TransactionType,
+      localId: this.defaultLocalId(),
       accountId: '',
       amount: null as number | null,
       date: new Date().toISOString().substring(0, 10),
@@ -236,6 +281,7 @@ export class TransactionsComponent {
       this.editing.set(t);
       this.form = {
         type: t.type,
+        localId: t.localId || this.defaultLocalId(),
         accountId: t.accountId,
         amount: t.amount,
         date: (typeof t.date === 'string' ? t.date : new Date(t.date).toISOString()).substring(0, 10),
@@ -257,6 +303,7 @@ export class TransactionsComponent {
     if (!this.form.accountId || !this.form.amount) return;
     const payload = {
       type: this.form.type,
+      localId: this.form.localId,
       accountId: this.form.accountId,
       amount: Number(this.form.amount),
       date: this.form.date,

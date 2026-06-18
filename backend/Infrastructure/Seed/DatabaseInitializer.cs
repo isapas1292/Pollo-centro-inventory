@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using PolloCentro.Api.Application.Abstractions.Security;
+using PolloCentro.Api.Domain.Catalogs;
 using PolloCentro.Api.Domain.Entities;
 using PolloCentro.Api.Infrastructure.Persistence;
 
@@ -35,6 +36,12 @@ public static class DatabaseInitializer
 
         await EnsureTablesAsync(db, ct);
         logger.LogInformation("Tablas operacionales verificadas/creadas.");
+
+        // Datos de referencia (siempre): catálogo de locales.
+        await SeedLocalesAsync(db, ct);
+
+        // Asigna local a las transacciones contables existentes que aún no lo tengan.
+        await BackfillTransactionLocationsAsync(db, ct);
 
         if (!seedData) return;
 
@@ -144,6 +151,8 @@ CREATE TABLE dbo.TransaccionesContables (
     IdTransaccion INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
     Fecha DATETIME NOT NULL,
     Tipo VARCHAR(20) NOT NULL,
+    UbicacionId VARCHAR(50) NULL,
+    UbicacionNombre VARCHAR(150) NULL,
     IdCuenta INT NOT NULL,
     CuentaNombre VARCHAR(150) NOT NULL,
     Monto DECIMAL(12,2) NOT NULL,
@@ -153,6 +162,18 @@ CREATE TABLE dbo.TransaccionesContables (
     Contacto VARCHAR(150) NULL,
     RegistradoPor VARCHAR(150) NULL,
     FechaRegistro DATETIME NOT NULL DEFAULT(getdate())
+);
+IF COL_LENGTH(N'dbo.TransaccionesContables', 'UbicacionId') IS NULL
+    ALTER TABLE dbo.TransaccionesContables ADD UbicacionId VARCHAR(50) NULL;
+IF COL_LENGTH(N'dbo.TransaccionesContables', 'UbicacionNombre') IS NULL
+    ALTER TABLE dbo.TransaccionesContables ADD UbicacionNombre VARCHAR(150) NULL;
+IF OBJECT_ID(N'dbo.Locales', N'U') IS NULL
+CREATE TABLE dbo.Locales (
+    IdLocal INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    Codigo VARCHAR(50) NOT NULL UNIQUE,
+    Nombre VARCHAR(150) NOT NULL,
+    Direccion VARCHAR(255) NULL,
+    Estado BIT NOT NULL DEFAULT(1)
 );";
 
     private static Task EnsureTablesAsync(AppDbContext db, CancellationToken ct)
@@ -430,10 +451,13 @@ CREATE TABLE dbo.TransaccionesContables (
                  string? contacto = null, string? metodo = null, string? referencia = null)
         {
             var c = byCode[code];
+            var local = Locales.Todos[rnd.Next(Locales.Todos.Count)];
             txs.Add(new TransaccionContable
             {
                 Fecha = DateTime.Now.Date.AddDays(-daysAgo).AddHours(rnd.Next(8, 20)),
                 Tipo = tipo,
+                UbicacionId = local.Id,
+                UbicacionNombre = local.Nombre,
                 IdCuenta = c.IdCuenta,
                 CuentaNombre = c.Nombre,
                 Monto = monto,
@@ -471,6 +495,32 @@ CREATE TABLE dbo.TransaccionesContables (
         Add("6400", "gasto", rnd.Next(3000, 9000), 28, "Reparación de equipo de cocina");
 
         db.TransaccionesContables.AddRange(txs);
+        await db.SaveChangesAsync(ct);
+    }
+
+    private static async Task SeedLocalesAsync(AppDbContext db, CancellationToken ct)
+    {
+        foreach (var (id, nombre) in Locales.Todos)
+        {
+            if (!await db.Locales.AnyAsync(l => l.Codigo == id, ct))
+                db.Locales.Add(new Local { Codigo = id, Nombre = nombre, Estado = true });
+        }
+        await db.SaveChangesAsync(ct);
+    }
+
+    private static async Task BackfillTransactionLocationsAsync(AppDbContext db, CancellationToken ct)
+    {
+        var sinLocal = await db.TransaccionesContables
+            .Where(t => t.UbicacionId == null)
+            .ToListAsync(ct);
+        if (sinLocal.Count == 0) return;
+
+        for (var i = 0; i < sinLocal.Count; i++)
+        {
+            var local = Locales.Todos[i % Locales.Todos.Count];
+            sinLocal[i].UbicacionId = local.Id;
+            sinLocal[i].UbicacionNombre = local.Nombre;
+        }
         await db.SaveChangesAsync(ct);
     }
 

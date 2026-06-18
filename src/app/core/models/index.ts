@@ -38,14 +38,8 @@ export interface ScheduleShift {
   weekKey: string;   // e.g., '2026-W23'
 }
 
-export const LOCATIONS: Location[] = [
-  { id: 'loc-union', name: 'Pollo Centro - S. Union' },
-  { id: 'loc-broadway', name: 'Pollo Centro - Broadway' },
-  { id: 'loc-haverhill', name: 'Pollo Centro - Haverhill' },
-  { id: 'loc-lynn', name: 'Pollo Centro - Lynn' },
-  { id: 'loc-prep', name: 'Pollo Centro - Prep' },
-  { id: 'loc-worcester', name: 'Pollo Centro - Worcester' },
-];
+// Los locales ahora provienen del backend (GET /api/locations).
+// La interfaz Location se mantiene como contrato de datos.
 
 export type ProductCategory = string;
 export type ProductUnit = 'kg' | 'lb' | 'unidad' | 'litro' | 'paquete';
@@ -164,6 +158,8 @@ export interface Transaction {
   id: string;
   date: Date | string;
   type: TransactionType;
+  localId?: string;
+  localName?: string;
   accountId: string;
   accountName: string;
   accountType?: string;

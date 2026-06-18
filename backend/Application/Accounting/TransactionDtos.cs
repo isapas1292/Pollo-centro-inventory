@@ -7,6 +7,8 @@ public class TransactionDto
     public string Id { get; set; } = string.Empty;
     public DateTime Date { get; set; }
     public string Type { get; set; } = string.Empty;        // ingreso | gasto
+    public string? LocalId { get; set; }
+    public string? LocalName { get; set; }
     public string AccountId { get; set; } = string.Empty;
     public string AccountName { get; set; } = string.Empty;
     public string AccountType { get; set; } = string.Empty; // Ingreso | Gasto | ...
@@ -24,6 +26,9 @@ public class TransactionInput
 
     [Required(ErrorMessage = "El tipo (ingreso/gasto) es requerido")]
     public string Type { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "El local es requerido")]
+    public string LocalId { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "La cuenta es requerida")]
     public string AccountId { get; set; } = string.Empty;
@@ -66,9 +71,10 @@ public class AccountingSummaryDto
 
 public interface ITransactionService
 {
-    Task<IReadOnlyList<TransactionDto>> GetAllAsync(DateTime? from, DateTime? to, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<TransactionDto>> GetAllAsync(string? local, DateTime? from, DateTime? to, CancellationToken cancellationToken = default);
     Task<TransactionDto> CreateAsync(TransactionInput input, CancellationToken cancellationToken = default);
     Task<TransactionDto> UpdateAsync(int id, TransactionInput input, CancellationToken cancellationToken = default);
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
-    Task<AccountingSummaryDto> GetSummaryAsync(DateTime? from, DateTime? to, CancellationToken cancellationToken = default);
+    Task<AccountingSummaryDto> GetSummaryAsync(string? local, DateTime? from, DateTime? to, CancellationToken cancellationToken = default);
+    Task<byte[]> ExportExcelAsync(string? local, DateTime? from, DateTime? to, CancellationToken cancellationToken = default);
 }

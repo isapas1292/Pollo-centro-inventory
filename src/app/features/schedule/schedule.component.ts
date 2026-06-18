@@ -101,7 +101,7 @@ interface DayColumn {
           </button>
           
           <div class="location-legend">
-            @for (loc of dataService.locations; track loc.id) {
+            @for (loc of dataService.locations(); track loc.id) {
               <div class="legend-item">
                 <div class="legend-color" [style.background]="getLocationColor(loc.id)"></div>
                 <span>{{ loc.name.replace('Pollo Centro - ', '') }}</span>
@@ -195,7 +195,7 @@ interface DayColumn {
                 <label>Local / Sucursal</label>
                 <select [(ngModel)]="shiftForm.locationId" class="pc-select">
                   <option value="">Seleccione local...</option>
-                  @for (loc of dataService.locations; track loc.id) {
+                  @for (loc of dataService.locations(); track loc.id) {
                     <option [value]="loc.id">{{ loc.name }}</option>
                   }
                 </select>
@@ -870,7 +870,7 @@ export class ScheduleComponent implements OnInit {
     if (!this.shiftForm.employeeId || !this.shiftForm.locationId) return;
 
     const emp = this.dataService.employees().find(e => e.id === this.shiftForm.employeeId);
-    const loc = this.dataService.locations.find(l => l.id === this.shiftForm.locationId);
+    const loc = this.dataService.locations().find(l => l.id === this.shiftForm.locationId);
     
     if (!emp || !loc) return;
 

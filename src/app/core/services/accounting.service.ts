@@ -2,6 +2,7 @@ import { Injectable, signal, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { Account, Transaction, AccountingSummary } from '../models';
+import { DataService } from './data.service';
 
 /**
  * AccountingService — Módulo de contabilidad (estilo QuickBooks), solo para admins.
@@ -10,20 +11,35 @@ import { Account, Transaction, AccountingSummary } from '../models';
 @Injectable({ providedIn: 'root' })
 export class AccountingService {
   private http = inject(HttpClient);
+  private dataService = inject(DataService);
   private readonly api = 'http://localhost:3000/api/accounting';
 
   private _accounts = signal<Account[]>([]);
   private _transactions = signal<Transaction[]>([]);
   private _summary = signal<AccountingSummary | null>(null);
   private _loading = signal(false);
+  private _selectedLocal = signal<string>('all');
 
   readonly accounts = this._accounts.asReadonly();
   readonly transactions = this._transactions.asReadonly();
   readonly summary = this._summary.asReadonly();
   readonly loading = this._loading.asReadonly();
+  readonly selectedLocal = this._selectedLocal.asReadonly();
+  readonly locations = this.dataService.locations;
 
   constructor() {
     this.loadAll();
+  }
+
+  /** Cambia el local activo y recarga transacciones y resumen filtrados. */
+  async setLocal(localId: string) {
+    this._selectedLocal.set(localId);
+    await Promise.all([this.reloadTransactions(), this.reloadSummary()]);
+  }
+
+  private localQuery(): string {
+    const l = this._selectedLocal();
+    return l && l !== 'all' ? `?local=${encodeURIComponent(l)}` : '';
   }
 
   async loadAll() {
@@ -38,13 +54,30 @@ export class AccountingService {
   }
 
   async reloadTransactions() {
-    try { this._transactions.set(await firstValueFrom(this.http.get<Transaction[]>(`${this.api}/transactions`))); }
+    try { this._transactions.set(await firstValueFrom(this.http.get<Transaction[]>(`${this.api}/transactions${this.localQuery()}`))); }
     catch (e) { console.error('transactions', e); }
   }
 
   async reloadSummary() {
-    try { this._summary.set(await firstValueFrom(this.http.get<AccountingSummary>(`${this.api}/transactions/summary`))); }
+    try { this._summary.set(await firstValueFrom(this.http.get<AccountingSummary>(`${this.api}/transactions/summary${this.localQuery()}`))); }
     catch (e) { console.error('summary', e); }
+  }
+
+  /** Descarga el Estado de Resultados + transacciones del local activo como Excel (.xlsx). */
+  async exportExcel() {
+    const local = this._selectedLocal();
+    try {
+      const blob = await firstValueFrom(
+        this.http.get(`${this.api}/transactions/export${this.localQuery()}`, { responseType: 'blob' })
+      );
+      const name = `Contabilidad_${local === 'all' ? 'todos' : local}_${new Date().toISOString().substring(0, 10)}.xlsx`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) { console.error('exportExcel', e); }
   }
 
   // --- Transactions ---

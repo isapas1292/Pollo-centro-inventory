@@ -1,7 +1,7 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { Product, Recipe, RecipeLog, PriceRecord, StockAlert, AppUser, AuditLog, Employee, ScheduleShift, LOCATIONS, Supplier, OrderReception } from '../models';
+import { Product, Recipe, RecipeLog, PriceRecord, StockAlert, AppUser, AuditLog, Employee, ScheduleShift, Location, Supplier, OrderReception } from '../models';
 
 /**
  * DataService — Capa de datos reactiva respaldada por la API .NET (PolloCentro.Api).
@@ -29,6 +29,7 @@ export class DataService {
   private _schedules = signal<ScheduleShift[]>([]);
   private _suppliers = signal<Supplier[]>([]);
   private _orderReceptions = signal<OrderReception[]>([]);
+  private _locations = signal<Location[]>([]);
 
   // --- Public readonly signals ---
   readonly products = this._products.asReadonly();
@@ -42,7 +43,7 @@ export class DataService {
   readonly schedules = this._schedules.asReadonly();
   readonly suppliers = this._suppliers.asReadonly();
   readonly orderReceptions = this._orderReceptions.asReadonly();
-  readonly locations = LOCATIONS;
+  readonly locations = this._locations.asReadonly();
 
   // --- Computed signals ---
   readonly activeAlerts = computed(() => this._alerts().filter(a => a.status === 'active'));
@@ -70,6 +71,7 @@ export class DataService {
     this.reloadSchedules();
     this.fetchSuppliers();
     this.reloadOrders();
+    this.reloadLocations();
   }
 
   private async getList<T>(path: string): Promise<T[]> {
@@ -91,6 +93,7 @@ export class DataService {
   private async reloadEmployees() { this._employees.set(await this.getList<Employee>('employees')); }
   private async reloadSchedules() { this._schedules.set(await this.getList<ScheduleShift>('schedules')); }
   private async reloadOrders() { this._orderReceptions.set(await this.getList<OrderReception>('orders')); }
+  private async reloadLocations() { this._locations.set(await this.getList<Location>('locations')); }
 
   private isServerId(id: string): boolean { return /^\d+$/.test(id); }
 

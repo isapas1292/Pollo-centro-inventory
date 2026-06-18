@@ -80,7 +80,11 @@ El esquema original solo tenía `Inventario`, `Proveedores`, `Recetas`, `RecetaI
 `Roles` y `Usuarios`. La aplicación crea (de forma **idempotente**, sin tocar las existentes) las
 tablas operacionales que faltaban: `Empleados`, `Turnos`, `HistorialPrecios`,
 `RegistroPreparaciones`, `Alertas`, `Auditoria`, `Recepciones`, `CuentasContables`,
-`TransaccionesContables`.
+`TransaccionesContables`, `Locales`.
+
+La tabla **`Locales`** es el catálogo de negocios (datos de referencia, sembrados siempre desde
+`Domain/Catalogs/Locales.cs`). Es la fuente de verdad para todo lo que dependa de la ubicación
+(horarios, contabilidad por local, etc.) y se expone vía `GET /api/locations`.
 
 - **Al arrancar** (`dotnet run`): se garantiza que las tablas existan. En *Development* (o si
   `Database:SeedOnStartup=true`) además se siembran datos de demostración en las tablas vacías.
@@ -110,6 +114,7 @@ tablas operacionales que faltaban: `Empleados`, `Turnos`, `HistorialPrecios`,
 | `/api/alerts`       | GET, POST, PUT `{id}`, PUT `{id}/resolve`, PUT `{id}/whatsapp`, DELETE `{id}` |
 | `/api/orders`       | GET, POST, PUT `{id}`, DELETE `{id}`          |
 | `/api/audit`        | GET, POST                                     |
+| `/api/locations`    | GET (catálogo de locales desde la BD)         |
 | `/api/accounting/accounts` 🔒 | GET, POST, PUT `{id}`, DELETE `{id}` |
 | `/api/accounting/transactions` 🔒 | GET (`?from=&to=`), POST, PUT `{id}`, DELETE `{id}`, GET `summary` |
 | `/health`           | GET (incluye verificación de la BD)           |
@@ -120,10 +125,17 @@ con un rol distinto de admin → 403.
 
 ### Contabilidad (estilo QuickBooks)
 
-- **Plan de Cuentas** (`CuentasContables`): Activo, Pasivo, Capital, Ingreso, Gasto.
-- **Transacciones** (`TransaccionesContables`): ingresos/gastos clasificados por cuenta.
+- **Plan de Cuentas** (`CuentasContables`): Activo, Pasivo, Capital, Ingreso, Gasto. Es compartido.
+- **Transacciones** (`TransaccionesContables`): ingresos/gastos clasificados por cuenta **y por local**
+  (`UbicacionId`). Cada local lleva su propia contabilidad; el catálogo de locales está en
+  `Domain/Catalogs/Locales.cs` (alineado con `LOCATIONS` del frontend).
+- **Filtro por local:** `?local=<id>` en `transactions`, `summary` y `export` (sin el parámetro, o
+  `local=all`, se obtiene el consolidado de todos los locales).
 - **Estado de Resultados (P&L)**: `GET /api/accounting/transactions/summary` devuelve totales,
-  desglose por cuenta y tendencia mensual. Solo lo ve el rol **admin** (`/contabilidad` en el frontend).
+  desglose por cuenta y tendencia mensual.
+- **Exportar a Excel:** `GET /api/accounting/transactions/export` genera un `.xlsx` (ClosedXML) con
+  una hoja **Resumen** (P&L) y una hoja **Transacciones**, respetando el filtro de local y fechas.
+- Todo el módulo es solo del rol **admin** (`/contabilidad` en el frontend).
 
 Las respuestas de error usan el formato estándar **ProblemDetails**.
 Ver `PolloCentro.Api.http` para ejemplos de peticiones.

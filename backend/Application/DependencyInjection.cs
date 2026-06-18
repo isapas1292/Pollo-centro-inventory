@@ -5,6 +5,7 @@ using PolloCentro.Api.Application.Audit;
 using PolloCentro.Api.Application.Auth;
 using PolloCentro.Api.Application.Employees;
 using PolloCentro.Api.Application.Inventory;
+using PolloCentro.Api.Application.Locations;
 using PolloCentro.Api.Application.Orders;
 using PolloCentro.Api.Application.Prices;
 using PolloCentro.Api.Application.Recipes;
@@ -32,6 +33,7 @@ public static class DependencyInjection
         services.AddScoped<IAuditService, AuditService>();
         services.AddScoped<IAccountService, AccountService>();
         services.AddScoped<ITransactionService, TransactionService>();
+        services.AddScoped<ILocationService, LocationService>();
         return services;
     }
 }

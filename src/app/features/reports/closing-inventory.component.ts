@@ -84,6 +84,8 @@ interface ClosingInventoryItem {
                     {{ item.total | currency }}
                   </td>
                 </tr>
+              } @empty {
+                <tr><td class="td-cell" colspan="7" style="text-align:center; padding:32px; color: var(--pc-text-muted);">Sin datos de cierre de inventario.</td></tr>
               }
             </tbody>
           </table>
@@ -250,10 +252,6 @@ interface ClosingInventoryItem {
   `]
 })
 export class ClosingInventoryComponent {
-  items = signal<ClosingInventoryItem[]>([
-    { id: 2482, store: 'Pollo Centro-Haverhill', enabled: true, state: 'MA', city: 'Haverhill', module: 'Food/Beverage', inventoryDate: '2026-02-03', total: 3873.60 },
-    { id: 2481, store: 'Pollo Centro- S. Union', enabled: true, state: 'MA', city: 'Lawrence', module: 'Food/Beverage', inventoryDate: '2026-02-03', total: 2590.09 },
-    { id: 2480, store: 'Pollo Centro-Broadway', enabled: true, state: 'MA', city: 'Lawrence', module: 'Food/Beverage', inventoryDate: '2026-02-03', total: 3272.29 },
-    { id: 2479, store: 'Pollo Centro-Prep', enabled: true, state: 'MA', city: 'Lawrence', module: 'Food/Beverage', inventoryDate: '2026-02-26', total: 82451.66 }
-  ]);
+  // Sin datos mockeados: este reporte no tiene aún una fuente en el backend.
+  items = signal<ClosingInventoryItem[]>([]);
 }

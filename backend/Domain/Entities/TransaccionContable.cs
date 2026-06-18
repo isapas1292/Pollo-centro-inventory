@@ -12,6 +12,10 @@ public class TransaccionContable
     /// <summary>Tipo de movimiento: "ingreso" o "gasto".</summary>
     public string Tipo { get; set; } = string.Empty;
 
+    /// <summary>Local/negocio al que pertenece la transacción (cada local lleva su contabilidad).</summary>
+    public string? UbicacionId { get; set; }
+    public string? UbicacionNombre { get; set; }
+
     public int IdCuenta { get; set; }
     public string CuentaNombre { get; set; } = string.Empty;
     public decimal Monto { get; set; }
