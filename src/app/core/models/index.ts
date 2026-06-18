@@ -38,14 +38,8 @@ export interface ScheduleShift {
   weekKey: string;   // e.g., '2026-W23'
 }
 
-export const LOCATIONS: Location[] = [
-  { id: 'loc-union', name: 'Pollo Centro - S. Union' },
-  { id: 'loc-broadway', name: 'Pollo Centro - Broadway' },
-  { id: 'loc-haverhill', name: 'Pollo Centro - Haverhill' },
-  { id: 'loc-lynn', name: 'Pollo Centro - Lynn' },
-  { id: 'loc-prep', name: 'Pollo Centro - Prep' },
-  { id: 'loc-worcester', name: 'Pollo Centro - Worcester' },
-];
+// Los locales ahora provienen del backend (GET /api/locations).
+// La interfaz Location se mantiene como contrato de datos.
 
 export type ProductCategory = string;
 export type ProductUnit = 'kg' | 'lb' | 'unidad' | 'litro' | 'paquete';
@@ -147,6 +141,61 @@ export interface OrderReception {
   status: 'pending' | 'completed' | 'cancelled';
 }
 
+// ===== Contabilidad (módulo estilo QuickBooks, solo admin) =====
+export type AccountType = 'Activo' | 'Pasivo' | 'Capital' | 'Ingreso' | 'Gasto';
+export type TransactionType = 'ingreso' | 'gasto';
+
+export interface Account {
+  id: string;
+  code: string;
+  name: string;
+  type: AccountType;
+  description?: string;
+  active: boolean;
+}
+
+export interface Transaction {
+  id: string;
+  date: Date | string;
+  type: TransactionType;
+  localId?: string;
+  localName?: string;
+  accountId: string;
+  accountName: string;
+  accountType?: string;
+  amount: number;
+  description?: string;
+  paymentMethod?: string;
+  reference?: string;
+  contact?: string;
+  recordedBy?: string;
+}
+
+export interface CategoryAmount {
+  account: string;
+  amount: number;
+}
+
+export interface MonthlyPoint {
+  period: string;
+  label: string;
+  income: number;
+  expense: number;
+}
+
+export interface AccountingSummary {
+  totalIncome: number;
+  totalExpenses: number;
+  netProfit: number;
+  transactionCount: number;
+  incomeByAccount: CategoryAmount[];
+  expenseByAccount: CategoryAmount[];
+  monthly: MonthlyPoint[];
+}
+
+export const ACCOUNT_TYPES: AccountType[] = ['Activo', 'Pasivo', 'Capital', 'Ingreso', 'Gasto'];
+export const PAYMENT_METHODS = ['efectivo', 'tarjeta', 'transferencia', 'cheque'];
+
 // Permission matrix
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   admin: [
@@ -161,6 +210,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'audit.view',
     'suppliers.view', 'suppliers.edit', 'suppliers.create', 'suppliers.delete',
     'orders.view', 'orders.create', 'orders.edit',
+    'accounting.view', 'accounting.edit',
   ],
   manager: [
     'dashboard.view',

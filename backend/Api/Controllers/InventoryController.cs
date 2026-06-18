@@ -13,7 +13,26 @@ public class InventoryController : ControllerBase
 
     /// <summary>Devuelve todos los productos del inventario con su proveedor.</summary>
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<ProductDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<ProductDto>>> GetAll(CancellationToken cancellationToken)
         => Ok(await _inventory.GetProductsAsync(cancellationToken));
+
+    [HttpPost]
+    public async Task<ActionResult<ProductDto>> Create(
+        [FromBody] ProductInput input, CancellationToken cancellationToken)
+    {
+        var created = await _inventory.CreateAsync(input, cancellationToken);
+        return Created($"/api/inventory/{created.Id}", created);
+    }
+
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult<ProductDto>> Update(
+        int id, [FromBody] ProductInput input, CancellationToken cancellationToken)
+        => Ok(await _inventory.UpdateAsync(id, input, cancellationToken));
+
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
+    {
+        await _inventory.DeleteAsync(id, cancellationToken);
+        return Ok(new { success = true });
+    }
 }

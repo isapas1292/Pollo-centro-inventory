@@ -167,7 +167,9 @@ p {
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    /* 'none' (no 'translateY(0)') evita dejar un transform persistente con
+       animation-fill-mode: forwards, que atraparía a los modales position: fixed. */
+    transform: none;
   }
 }
 
@@ -183,7 +185,7 @@ p {
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: none;
   }
 }
 

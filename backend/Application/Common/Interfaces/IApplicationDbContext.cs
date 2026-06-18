@@ -16,6 +16,16 @@ public interface IApplicationDbContext
     DbSet<Rol> Roles { get; }
     DbSet<Receta> Recetas { get; }
     DbSet<RecetaIngrediente> RecetaIngredientes { get; }
+    DbSet<Empleado> Empleados { get; }
+    DbSet<Turno> Turnos { get; }
+    DbSet<HistorialPrecio> HistorialPrecios { get; }
+    DbSet<RegistroPreparacion> RegistroPreparaciones { get; }
+    DbSet<Alerta> Alertas { get; }
+    DbSet<Auditoria> Auditorias { get; }
+    DbSet<Recepcion> Recepciones { get; }
+    DbSet<CuentaContable> CuentasContables { get; }
+    DbSet<TransaccionContable> TransaccionesContables { get; }
+    DbSet<Local> Locales { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

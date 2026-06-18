@@ -582,6 +582,17 @@ export class LayoutComponent {
       ]
     },
     { icon: 'notifications_active', label: 'Alertas', route: '/alerts', permission: 'alerts.view' },
+    {
+      icon: 'account_balance',
+      label: 'Contabilidad',
+      route: '/contabilidad',
+      permission: 'accounting.view',
+      children: [
+        { icon: 'summarize', label: 'Resumen / P&L', route: '/contabilidad/resumen', permission: 'accounting.view' },
+        { icon: 'receipt_long', label: 'Transacciones', route: '/contabilidad/transacciones', permission: 'accounting.view' },
+        { icon: 'account_tree', label: 'Plan de Cuentas', route: '/contabilidad/cuentas', permission: 'accounting.view' }
+      ]
+    },
     { icon: 'people', label: 'Usuarios', route: '/users', permission: 'users.view' },
   ];
 

@@ -1,7 +1,8 @@
-import { Component, signal } from '@angular/core';
+import { Component, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
+import { DataService } from '../../core/services/data.service';
 
 interface InventoryActivityItem {
   id: string;
@@ -101,6 +102,8 @@ interface InventoryActivityItem {
                   <td class="td-cell">{{ item.lastInventoried }}</td>
                   <td class="td-cell">{{ item.lastSold }}</td>
                 </tr>
+              } @empty {
+                <tr><td class="td-cell" colspan="6" style="text-align:center; padding:32px; color: var(--pc-text-muted);">Sin datos de inventario.</td></tr>
               }
             </tbody>
           </table>
@@ -275,13 +278,18 @@ interface InventoryActivityItem {
   `]
 })
 export class InventoryActivityComponent {
-  items = signal<InventoryActivityItem[]>([
-    { id: '1', name: '(GALON DE ACEITE)', vendor: 'Main Commissary - Pollo Centro-Prep', itemNumber: '4315730', lastPurchased: '05-08-2026', lastInventoried: 'NA', lastSold: 'NA' },
-    { id: '2', name: '40 LB Harina amarilla', vendor: 'Main Commissary - Pollo Centro-Prep', itemNumber: '3795452', lastPurchased: '05-07-2026', lastInventoried: '02-03-2026', lastSold: 'NA' },
-    { id: '3', name: 'AGUA', vendor: 'Main Commissary - Pollo Centro-Prep', itemNumber: '3800216', lastPurchased: '05-07-2026', lastInventoried: '02-03-2026', lastSold: 'NA' },
-    { id: '4', name: 'AJO EN GRANO', vendor: 'Main Commissary - Pollo Centro-Prep', itemNumber: '3800143', lastPurchased: '05-07-2026', lastInventoried: 'NA', lastSold: 'NA' },
-    { id: '5', name: 'AJO EN PASTA', vendor: 'Main Commissary - Pollo Centro-Prep', itemNumber: '3865347', lastPurchased: '04-14-2026', lastInventoried: 'NA', lastSold: 'NA' },
-    { id: '6', name: 'ARROZ BLANCO', vendor: 'Main Commissary - Pollo Centro-Prep', itemNumber: '4406052', lastPurchased: '05-08-2026', lastInventoried: 'NA', lastSold: 'NA' },
-    { id: '7', name: 'BANDEJA GRANDE LLANA', vendor: 'Main Commissary - Pollo Centro-Prep', itemNumber: '4331885', lastPurchased: '03-31-2026', lastInventoried: 'NA', lastSold: 'NA' }
-  ]);
+  constructor(private dataService: DataService) {}
+
+  // Derivado de los productos reales del backend; vacío si no hay datos.
+  items = computed<InventoryActivityItem[]>(() =>
+    this.dataService.products().map(p => ({
+      id: p.id,
+      name: p.name,
+      vendor: p.supplierName || '-',
+      itemNumber: p.id,
+      lastPurchased: p.lastUpdated ? new Date(p.lastUpdated).toLocaleDateString() : 'NA',
+      lastInventoried: 'NA',
+      lastSold: 'NA',
+    }))
+  );
 }
