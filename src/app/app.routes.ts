@@ -66,9 +66,20 @@ export const routes: Routes = [
         path: 'orders', 
         loadComponent: () => import('./features/orders/orders.component').then(m => m.OrdersComponent) 
       },
-      { 
-        path: 'users', 
-        loadComponent: () => import('./features/users/users.component').then(m => m.UsersComponent) 
+      {
+        path: 'users',
+        loadComponent: () => import('./features/users/users.component').then(m => m.UsersComponent)
+      },
+      {
+        path: 'contabilidad',
+        canActivate: [adminGuard],
+        loadComponent: () => import('./features/accounting/accounting.component').then(m => m.AccountingComponent),
+        children: [
+          { path: '', redirectTo: 'resumen', pathMatch: 'full' },
+          { path: 'resumen', loadComponent: () => import('./features/accounting/accounting-dashboard.component').then(m => m.AccountingDashboardComponent) },
+          { path: 'transacciones', loadComponent: () => import('./features/accounting/transactions.component').then(m => m.TransactionsComponent) },
+          { path: 'cuentas', loadComponent: () => import('./features/accounting/accounts.component').then(m => m.AccountsComponent) }
+        ]
       }
     ]
   },

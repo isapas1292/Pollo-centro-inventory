@@ -94,7 +94,7 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
             
             <select class="custom-select" [ngModel]="selectedLocation()" (ngModelChange)="selectedLocation.set($event)">
               <option value="all">Select Location</option>
-              @for (loc of dataService.locations; track loc.id) {
+              @for (loc of dataService.locations(); track loc.id) {
                 <option [value]="loc.id">{{ loc.name }}</option>
               }
             </select>

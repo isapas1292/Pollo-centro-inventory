@@ -1,0 +1,16 @@
+@host = http://localhost:3000
+
+### Login
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@pollocentro.com",
+  "password": "admin123"
+}
+
+### Inventory
+GET {{host}}/api/inventory
+
+### Suppliers
+GET {{host}}/api/suppliers
