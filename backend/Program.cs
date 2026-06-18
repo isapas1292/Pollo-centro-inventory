@@ -28,13 +28,26 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
 var app = builder.Build();
 
 // ----------------------------------------------------------------------------
-// Comando CLI: `dotnet run -- seed-admin` (reemplaza seed-user.js)
+// Comandos CLI
 // ----------------------------------------------------------------------------
 if (args.Length > 0 && args[0] == "seed-admin")
 {
+    // `dotnet run -- seed-admin` (reemplaza seed-user.js)
     await DatabaseSeeder.SeedAdminAsync(app.Services);
     return;
 }
+if (args.Length > 0 && args[0] == "db-init")
+{
+    // `dotnet run -- db-init`: crea tablas faltantes y siembra datos de demostración.
+    await DatabaseInitializer.InitializeAsync(app.Services, seedData: true);
+    return;
+}
+
+// Al arrancar: garantiza que existan las tablas operacionales. Siembra datos
+// de demostración solo en Development o si Database:SeedOnStartup está activo.
+var seedOnStartup = app.Environment.IsDevelopment()
+    || app.Configuration.GetValue<bool>("Database:SeedOnStartup");
+await DatabaseInitializer.InitializeAsync(app.Services, seedData: seedOnStartup);
 
 // ----------------------------------------------------------------------------
 // Pipeline HTTP

@@ -14,6 +14,13 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<Rol> Roles => Set<Rol>();
     public DbSet<Receta> Recetas => Set<Receta>();
     public DbSet<RecetaIngrediente> RecetaIngredientes => Set<RecetaIngrediente>();
+    public DbSet<Empleado> Empleados => Set<Empleado>();
+    public DbSet<Turno> Turnos => Set<Turno>();
+    public DbSet<HistorialPrecio> HistorialPrecios => Set<HistorialPrecio>();
+    public DbSet<RegistroPreparacion> RegistroPreparaciones => Set<RegistroPreparacion>();
+    public DbSet<Alerta> Alertas => Set<Alerta>();
+    public DbSet<Auditoria> Auditorias => Set<Auditoria>();
+    public DbSet<Recepcion> Recepciones => Set<Recepcion>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

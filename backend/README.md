@@ -59,8 +59,9 @@ La capa Application no depende de la implementación concreta de EF: usa la abst
 
 - **Conexión:** usa autenticación integrada de Windows (`Trusted_Connection=True`). Para usuario/
   contraseña de SQL, cámbiala por `User Id=...;Password=...;`.
-- **JWT:** el secreto debe tener al menos 32 bytes (lo valida `JwtOptions` al arrancar).
-  Para producción, ponlo en *User Secrets* o variables de entorno, no en el repositorio.
+- **JWT:** el secreto **no** se guarda en el repositorio (mín. 32 bytes, validado al arrancar).
+  - Desarrollo: `dotnet user-secrets set "Jwt:Secret" "<clave-larga>"` (ya configurado).
+  - Producción: variable de entorno `Jwt__Secret`.
 - **CORS:** si `AllowedOrigins` está vacío (como en Development), se permite cualquier origen.
 
 ## Ejecutar
@@ -73,25 +74,42 @@ dotnet run
 El servidor escucha en `http://localhost:3000` (mismo puerto que el frontend espera).
 Puedes cambiar el puerto con la variable de entorno `PORT`.
 
-## Sembrar el usuario administrador
+## Base de datos: tablas y siembra de datos
 
-Equivalente al antiguo `seed-user.js`. Crea `admin@pollocentro.com` / `admin123` (rol `admin`):
+El esquema original solo tenía `Inventario`, `Proveedores`, `Recetas`, `RecetaIngredientes`,
+`Roles` y `Usuarios`. La aplicación crea (de forma **idempotente**, sin tocar las existentes) las
+tablas operacionales que faltaban: `Empleados`, `Turnos`, `HistorialPrecios`,
+`RegistroPreparaciones`, `Alertas`, `Auditoria`, `Recepciones`.
 
-```powershell
-dotnet run -- seed-admin
-```
+- **Al arrancar** (`dotnet run`): se garantiza que las tablas existan. En *Development* (o si
+  `Database:SeedOnStartup=true`) además se siembran datos de demostración en las tablas vacías.
+- **Manual:** `dotnet run -- db-init` crea las tablas y siembra datos de ejemplo.
+- **Solo admin:** `dotnet run -- seed-admin` (equivalente al antiguo `seed-user.js`).
+
+**Usuarios de demostración:**
+
+| Correo                      | Contraseña  | Rol         |
+|-----------------------------|-------------|-------------|
+| `admin@pollocentro.com`     | `admin123`  | admin       |
+| `gerente@pollocentro.com`   | `manager123`| manager     |
+| `operador@pollocentro.com`  | `oper123`   | operations  |
 
 ## Endpoints
 
-| Método | Ruta                  | Descripción                          |
-|--------|-----------------------|--------------------------------------|
-| POST   | `/api/auth/login`     | Login con BCrypt + JWT (8 h)         |
-| GET    | `/api/inventory`      | Lista de productos del inventario    |
-| GET    | `/api/suppliers`      | Lista de proveedores                 |
-| POST   | `/api/suppliers`      | Crear proveedor                      |
-| PUT    | `/api/suppliers/{id}` | Actualizar proveedor                 |
-| DELETE | `/api/suppliers/{id}` | Eliminar proveedor                   |
-| GET    | `/health`             | Health check (incluye la BD)         |
+| Recurso       | Métodos                                              |
+|---------------|------------------------------------------------------|
+| `/api/auth/login`   | POST (BCrypt + JWT)                            |
+| `/api/inventory`    | GET, POST, PUT `{id}`, DELETE `{id}`          |
+| `/api/suppliers`    | GET, POST, PUT `{id}`, DELETE `{id}`          |
+| `/api/recipes`      | GET, POST, PUT `{id}`, DELETE `{id}`, POST `{id}/prepare`, GET `logs` |
+| `/api/users`        | GET, POST, PUT `{id}`, DELETE `{id}`          |
+| `/api/employees`    | GET, POST, PUT `{id}`, DELETE `{id}`          |
+| `/api/schedules`    | GET (`?weekKey=`), POST, PUT `{id}`, DELETE `{id}` |
+| `/api/prices`       | GET, POST                                     |
+| `/api/alerts`       | GET, POST, PUT `{id}`, PUT `{id}/resolve`, PUT `{id}/whatsapp`, DELETE `{id}` |
+| `/api/orders`       | GET, POST, PUT `{id}`, DELETE `{id}`          |
+| `/api/audit`        | GET, POST                                     |
+| `/health`           | GET (incluye verificación de la BD)           |
 
 Las respuestas de error usan el formato estándar **ProblemDetails**.
 Ver `PolloCentro.Api.http` para ejemplos de peticiones.
