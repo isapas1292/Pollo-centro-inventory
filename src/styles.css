@@ -199,12 +199,16 @@ p {
   100% { background-position: 200% 0; }
 }
 
+/* 'backwards' (no 'forwards'): mantiene el efecto de entrada pero NO congela el
+   transform al terminar. Con 'forwards' el transform quedaba en matrix(1,0,0,1,0,0),
+   que —aunque es la identidad— crea un containing block y atrapaba a los modales
+   position: fixed dentro del contenedor en vez de centrarlos en la ventana. */
 .animate-fade-in-up {
-  animation: fadeInUp 0.5s ease-out forwards;
+  animation: fadeInUp 0.5s ease-out backwards;
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.3s ease-out forwards;
+  animation: fadeIn 0.3s ease-out backwards;
 }
 
 /* Stagger children animations */

@@ -16,12 +16,15 @@ export class AuthService {
   constructor(private router: Router, private http: HttpClient) {
     // Restore session
     const stored = localStorage.getItem('pc_user');
-    if (stored) {
+    const token = localStorage.getItem('pc_token');
+    if (stored && token && !this.isTokenExpired(token)) {
       try {
         this.currentUser.set(JSON.parse(stored));
       } catch {
-        localStorage.removeItem('pc_user');
+        this.clearSession();
       }
+    } else {
+      this.clearSession();
     }
   }
 
@@ -45,8 +48,7 @@ export class AuthService {
 
   logout(): void {
     this.currentUser.set(null);
-    localStorage.removeItem('pc_user');
-    localStorage.removeItem('pc_token');
+    this.clearSession();
     this.router.navigate(['/login']);
   }
 
@@ -63,5 +65,20 @@ export class AuthService {
   private setUser(user: AppUser): void {
     this.currentUser.set(user);
     localStorage.setItem('pc_user', JSON.stringify(user));
+  }
+
+  private clearSession(): void {
+    this.currentUser.set(null);
+    localStorage.removeItem('pc_user');
+    localStorage.removeItem('pc_token');
+  }
+
+  private isTokenExpired(token: string): boolean {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1] ?? '')) as { exp?: number };
+      return !payload.exp || payload.exp * 1000 <= Date.now();
+    } catch {
+      return true;
+    }
   }
 }

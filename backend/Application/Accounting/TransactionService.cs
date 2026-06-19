@@ -3,6 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using PolloCentro.Api.Application.Common.Exceptions;
 using PolloCentro.Api.Application.Common.Interfaces;
 using PolloCentro.Api.Domain.Entities;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 
 namespace PolloCentro.Api.Application.Accounting;
 
@@ -216,6 +219,114 @@ public class TransactionService : ITransactionService
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
         return ms.ToArray();
+    }
+
+    public async Task<byte[]> ExportPdfAsync(
+        string? local, DateTime? from, DateTime? to, CancellationToken cancellationToken = default)
+    {
+        var rows = await Filtered(local, from, to)
+            .OrderBy(t => t.Fecha)
+            .Select(t => new { t.Fecha, t.Tipo, t.UbicacionNombre, t.CuentaNombre, t.Descripcion, t.Monto })
+            .ToListAsync(cancellationToken);
+
+        var summary = BuildSummary(rows.Select(r => (r.Tipo, r.CuentaNombre, r.Monto, r.Fecha)));
+        var localName = string.IsNullOrWhiteSpace(local) || local == "all"
+            ? "Todos los locales"
+            : await ResolveLocalNameAsync(local, cancellationToken) ?? local;
+        var periodo = $"{(from.HasValue ? from.Value.ToString("dd/MM/yyyy") : "inicio")} — {(to.HasValue ? to.Value.ToString("dd/MM/yyyy") : "hoy")}";
+
+        var document = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4);
+                page.Margin(28);
+                page.DefaultTextStyle(x => x.FontSize(9).FontColor(Colors.Black));
+
+                page.Header().Column(h =>
+                {
+                    h.Item().Text("Pollo Centro — Estado de Resultados").FontSize(16).Bold();
+                    h.Item().Text($"Local: {localName}").FontSize(10);
+                    h.Item().Text($"Período: {periodo}").FontSize(10);
+                    h.Item().Text($"Generado: {DateTime.Now:dd/MM/yyyy HH:mm}").FontSize(8).FontColor(Colors.Grey.Medium);
+                });
+
+                page.Content().PaddingVertical(12).Column(col =>
+                {
+                    col.Spacing(12);
+
+                    col.Item().Background(Colors.Grey.Lighten4).Padding(8).Row(r =>
+                    {
+                        r.RelativeItem().Column(c => { c.Item().Text("INGRESOS").FontSize(8).FontColor(Colors.Grey.Darken1); c.Item().Text($"RD$ {summary.TotalIncome:N2}").Bold().FontColor(Colors.Green.Darken2); });
+                        r.RelativeItem().Column(c => { c.Item().Text("GASTOS").FontSize(8).FontColor(Colors.Grey.Darken1); c.Item().Text($"RD$ {summary.TotalExpenses:N2}").Bold().FontColor(Colors.Red.Darken2); });
+                        r.RelativeItem().Column(c => { c.Item().Text(summary.NetProfit >= 0 ? "UTILIDAD NETA" : "PÉRDIDA NETA").FontSize(8).FontColor(Colors.Grey.Darken1); c.Item().Text($"RD$ {summary.NetProfit:N2}").Bold(); });
+                    });
+
+                    if (summary.IncomeByAccount.Count > 0)
+                    {
+                        col.Item().Text("Ingresos por cuenta").Bold();
+                        col.Item().Table(t =>
+                        {
+                            t.ColumnsDefinition(c => { c.RelativeColumn(3); c.RelativeColumn(1); });
+                            foreach (var inc in summary.IncomeByAccount)
+                            {
+                                t.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).PaddingVertical(2).Text(inc.Account);
+                                t.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).PaddingVertical(2).AlignRight().Text($"RD$ {inc.Amount:N2}");
+                            }
+                        });
+                    }
+
+                    if (summary.ExpenseByAccount.Count > 0)
+                    {
+                        col.Item().Text("Gastos por cuenta").Bold();
+                        col.Item().Table(t =>
+                        {
+                            t.ColumnsDefinition(c => { c.RelativeColumn(3); c.RelativeColumn(1); });
+                            foreach (var exp in summary.ExpenseByAccount)
+                            {
+                                t.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).PaddingVertical(2).Text(exp.Account);
+                                t.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).PaddingVertical(2).AlignRight().Text($"RD$ {exp.Amount:N2}");
+                            }
+                        });
+                    }
+
+                    col.Item().Text($"Transacciones ({rows.Count})").Bold();
+                    col.Item().Table(t =>
+                    {
+                        t.ColumnsDefinition(c => { c.ConstantColumn(52); c.RelativeColumn(2); c.RelativeColumn(2); c.RelativeColumn(3); c.ConstantColumn(72); });
+                        t.Header(header =>
+                        {
+                            header.Cell().Background(Colors.Grey.Darken3).Padding(3).Text("Fecha").FontColor(Colors.White).FontSize(8).Bold();
+                            header.Cell().Background(Colors.Grey.Darken3).Padding(3).Text("Local").FontColor(Colors.White).FontSize(8).Bold();
+                            header.Cell().Background(Colors.Grey.Darken3).Padding(3).Text("Cuenta").FontColor(Colors.White).FontSize(8).Bold();
+                            header.Cell().Background(Colors.Grey.Darken3).Padding(3).Text("Descripción").FontColor(Colors.White).FontSize(8).Bold();
+                            header.Cell().Background(Colors.Grey.Darken3).Padding(3).AlignRight().Text("Monto").FontColor(Colors.White).FontSize(8).Bold();
+                        });
+                        foreach (var r in rows)
+                        {
+                            var signed = r.Tipo == "gasto" ? -r.Monto : r.Monto;
+                            t.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3).Padding(3).Text(r.Fecha.ToString("dd/MM/yy")).FontSize(8);
+                            t.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3).Padding(3).Text(r.UbicacionNombre ?? "").FontSize(8);
+                            t.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3).Padding(3).Text(r.CuentaNombre).FontSize(8);
+                            t.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3).Padding(3).Text(r.Descripcion ?? "").FontSize(8);
+                            t.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3).Padding(3).AlignRight()
+                                .Text($"RD$ {signed:N2}").FontSize(8)
+                                .FontColor(r.Tipo == "gasto" ? Colors.Red.Darken1 : Colors.Green.Darken1);
+                        }
+                    });
+                });
+
+                page.Footer().AlignCenter().Text(x =>
+                {
+                    x.Span("Página ").FontSize(8);
+                    x.CurrentPageNumber().FontSize(8);
+                    x.Span(" de ").FontSize(8);
+                    x.TotalPages().FontSize(8);
+                });
+            });
+        });
+
+        return document.GeneratePdf();
     }
 
     // ---------------------------------------------------------------- helpers

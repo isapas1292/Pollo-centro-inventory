@@ -3,6 +3,9 @@ using PolloCentro.Api.Application;
 using PolloCentro.Api.Infrastructure;
 using PolloCentro.Api.Infrastructure.Seed;
 
+// Licencia Community de QuestPDF (gratuita para empresas pequeñas) para generar PDFs.
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ----------------------------------------------------------------------------

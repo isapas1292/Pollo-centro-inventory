@@ -77,4 +77,5 @@ public interface ITransactionService
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
     Task<AccountingSummaryDto> GetSummaryAsync(string? local, DateTime? from, DateTime? to, CancellationToken cancellationToken = default);
     Task<byte[]> ExportExcelAsync(string? local, DateTime? from, DateTime? to, CancellationToken cancellationToken = default);
+    Task<byte[]> ExportPdfAsync(string? local, DateTime? from, DateTime? to, CancellationToken cancellationToken = default);
 }

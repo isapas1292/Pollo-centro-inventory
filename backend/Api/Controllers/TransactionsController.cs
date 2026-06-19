@@ -12,6 +12,7 @@ public class TransactionsController : ControllerBase
 {
     private const string ExcelContentType =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    private const string PdfContentType = "application/pdf";
 
     private readonly ITransactionService _transactions;
 
@@ -36,6 +37,17 @@ public class TransactionsController : ControllerBase
         var slug = string.IsNullOrWhiteSpace(local) || local == "all" ? "todos" : local;
         var fileName = $"Contabilidad_{slug}_{DateTime.Now:yyyyMMdd}.xlsx";
         return File(bytes, ExcelContentType, fileName);
+    }
+
+    /// <summary>Exporta las transacciones y el Estado de Resultados del local a un archivo PDF.</summary>
+    [HttpGet("export-pdf")]
+    public async Task<IActionResult> ExportPdf(
+        [FromQuery] string? local, [FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken cancellationToken)
+    {
+        var bytes = await _transactions.ExportPdfAsync(local, from, to, cancellationToken);
+        var slug = string.IsNullOrWhiteSpace(local) || local == "all" ? "todos" : local;
+        var fileName = $"Contabilidad_{slug}_{DateTime.Now:yyyyMMdd}.pdf";
+        return File(bytes, PdfContentType, fileName);
     }
 
     [HttpPost]
