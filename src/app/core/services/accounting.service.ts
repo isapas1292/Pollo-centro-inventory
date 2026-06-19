@@ -19,12 +19,16 @@ export class AccountingService {
   private _summary = signal<AccountingSummary | null>(null);
   private _loading = signal(false);
   private _selectedLocal = signal<string>('all');
+  private _fromDate = signal<string>('');
+  private _toDate = signal<string>('');
 
   readonly accounts = this._accounts.asReadonly();
   readonly transactions = this._transactions.asReadonly();
   readonly summary = this._summary.asReadonly();
   readonly loading = this._loading.asReadonly();
   readonly selectedLocal = this._selectedLocal.asReadonly();
+  readonly fromDate = this._fromDate.asReadonly();
+  readonly toDate = this._toDate.asReadonly();
   readonly locations = this.dataService.locations;
 
   constructor() {
@@ -37,9 +41,25 @@ export class AccountingService {
     await Promise.all([this.reloadTransactions(), this.reloadSummary()]);
   }
 
-  private localQuery(): string {
+  /** Cambia el rango de fechas activo y recarga transacciones y resumen filtrados. */
+  async setDateRange(from: string, to: string) {
+    this._fromDate.set(from);
+    this._toDate.set(to);
+    await Promise.all([this.reloadTransactions(), this.reloadSummary()]);
+  }
+
+  async clearDateRange() {
+    await this.setDateRange('', '');
+  }
+
+  private filterQuery(): string {
     const l = this._selectedLocal();
-    return l && l !== 'all' ? `?local=${encodeURIComponent(l)}` : '';
+    const params = new URLSearchParams();
+    if (l && l !== 'all') params.set('local', l);
+    if (this._fromDate()) params.set('from', this._fromDate());
+    if (this._toDate()) params.set('to', this._toDate());
+    const query = params.toString();
+    return query ? `?${query}` : '';
   }
 
   async loadAll() {
@@ -54,12 +74,12 @@ export class AccountingService {
   }
 
   async reloadTransactions() {
-    try { this._transactions.set(await firstValueFrom(this.http.get<Transaction[]>(`${this.api}/transactions${this.localQuery()}`))); }
+    try { this._transactions.set(await firstValueFrom(this.http.get<Transaction[]>(`${this.api}/transactions${this.filterQuery()}`))); }
     catch (e) { console.error('transactions', e); }
   }
 
   async reloadSummary() {
-    try { this._summary.set(await firstValueFrom(this.http.get<AccountingSummary>(`${this.api}/transactions/summary${this.localQuery()}`))); }
+    try { this._summary.set(await firstValueFrom(this.http.get<AccountingSummary>(`${this.api}/transactions/summary${this.filterQuery()}`))); }
     catch (e) { console.error('summary', e); }
   }
 
@@ -68,7 +88,7 @@ export class AccountingService {
     const local = this._selectedLocal();
     try {
       const blob = await firstValueFrom(
-        this.http.get(`${this.api}/transactions/export${this.localQuery()}`, { responseType: 'blob' })
+        this.http.get(`${this.api}/transactions/export${this.filterQuery()}`, { responseType: 'blob' })
       );
       const name = `Contabilidad_${local === 'all' ? 'todos' : local}_${new Date().toISOString().substring(0, 10)}.xlsx`;
       const url = URL.createObjectURL(blob);

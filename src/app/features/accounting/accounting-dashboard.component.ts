@@ -29,6 +29,19 @@ import { AccountingService } from '../../core/services/accounting.service';
             @for (loc of locations(); track loc.id) { <option [value]="loc.id">{{ loc.name }}</option> }
           </select>
         </div>
+        <div class="date-filters">
+          <label>
+            <span>Desde</span>
+            <input type="date" [value]="fromDate()" (change)="onDateRange($event, 'from')">
+          </label>
+          <label>
+            <span>Hasta</span>
+            <input type="date" [value]="toDate()" (change)="onDateRange($event, 'to')">
+          </label>
+          @if (fromDate() || toDate()) {
+            <button class="btn-clear" (click)="clearDates()" title="Limpiar fechas"><mat-icon>close</mat-icon></button>
+          }
+        </div>
         <button class="btn-excel" (click)="exportExcel()">
           <mat-icon>download</mat-icon> Exportar a Excel
         </button>
@@ -173,6 +186,13 @@ import { AccountingService } from '../../core/services/accounting.service';
     .local-select mat-icon { color: var(--pc-yellow); font-size: 20px; width: 20px; height: 20px; }
     .local-select select { background: transparent; border: none; color: var(--pc-text-primary); font-family: var(--pc-font-body); font-size: 0.9rem; padding: 8px 4px; outline: none; cursor: pointer; }
     .local-select select option { background: var(--pc-bg-sidebar); }
+    .date-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .date-filters label { display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.2); border: 1px solid var(--pc-border); border-radius: var(--pc-radius-md); padding: 4px 10px; }
+    .date-filters span { color: var(--pc-text-muted); font-size: 0.78rem; }
+    .date-filters input { background: transparent; border: none; color: var(--pc-text-primary); font-family: var(--pc-font-body); font-size: 0.86rem; padding: 8px 0; outline: none; color-scheme: dark; }
+    .btn-clear { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); color: var(--pc-text-secondary); border: 1px solid var(--pc-border); border-radius: var(--pc-radius-md); cursor: pointer; }
+    .btn-clear:hover { color: var(--pc-yellow); border-color: var(--pc-yellow); }
+    .btn-clear mat-icon { font-size: 18px; width: 18px; height: 18px; }
     .btn-excel { display: flex; align-items: center; gap: 8px; background: rgba(16,185,129,0.12); color: #34D399; border: 1px solid rgba(16,185,129,0.3); padding: 9px 18px; border-radius: var(--pc-radius-md); font-weight: 600; cursor: pointer; transition: all 0.2s; }
     .btn-excel:hover { background: rgba(16,185,129,0.2); }
     .btn-excel mat-icon { font-size: 18px; width: 18px; height: 18px; }
@@ -240,10 +260,23 @@ export class AccountingDashboardComponent {
   summary = this.accounting.summary;
   locations = this.accounting.locations;
   selectedLocal = this.accounting.selectedLocal;
+  fromDate = this.accounting.fromDate;
+  toDate = this.accounting.toDate;
   recent = computed(() => this.accounting.transactions().slice(0, 8));
 
   onLocal(e: Event) {
     this.accounting.setLocal((e.target as HTMLSelectElement).value);
+  }
+
+  onDateRange(e: Event, side: 'from' | 'to') {
+    const value = (e.target as HTMLInputElement).value;
+    const from = side === 'from' ? value : this.fromDate();
+    const to = side === 'to' ? value : this.toDate();
+    this.accounting.setDateRange(from, to);
+  }
+
+  clearDates() {
+    this.accounting.clearDateRange();
   }
 
   exportExcel() {
