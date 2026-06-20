@@ -1,7 +1,7 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { Product, Recipe, RecipeLog, PriceRecord, StockAlert, AppUser, AuditLog, Employee, ScheduleShift, Location, Supplier, OrderReception } from '../models';
+import { Product, Recipe, RecipeLog, PriceRecord, StockAlert, AppUser, AuditLog, Employee, ScheduleShift, Location, Supplier, OrderReception, Dispatch, DispatchItem } from '../models';
 
 /**
  * DataService — Capa de datos reactiva respaldada por la API .NET (PolloCentro.Api).
@@ -33,6 +33,7 @@ export class DataService {
   private _schedules = signal<ScheduleShift[]>([]);
   private _suppliers = signal<Supplier[]>([]);
   private _orderReceptions = signal<OrderReception[]>([]);
+  private _dispatches = signal<Dispatch[]>([]);
   private _locations = signal<Location[]>([]);
 
   // --- Public readonly signals ---
@@ -47,6 +48,7 @@ export class DataService {
   readonly schedules = this._schedules.asReadonly();
   readonly suppliers = this._suppliers.asReadonly();
   readonly orderReceptions = this._orderReceptions.asReadonly();
+  readonly dispatches = this._dispatches.asReadonly();
   readonly locations = this._locations.asReadonly();
 
   // --- Computed signals ---
@@ -75,6 +77,7 @@ export class DataService {
     this.reloadSchedules();
     this.fetchSuppliers();
     this.reloadOrders();
+    this.reloadDispatches();
     this.reloadLocations();
   }
 
@@ -97,6 +100,7 @@ export class DataService {
   private async reloadEmployees() { this._employees.set(await this.getList<Employee>('employees')); }
   private async reloadSchedules() { this._schedules.set(await this.getList<ScheduleShift>('schedules')); }
   private async reloadOrders() { this._orderReceptions.set(await this.getList<OrderReception>('orders')); }
+  private async reloadDispatches() { this._dispatches.set(await this.getList<Dispatch>('dispatches')); }
   private async reloadLocations() { this._locations.set(await this.getList<Location>('locations')); }
 
   private isServerId(id: string): boolean { return /^\d+$/.test(id); }
@@ -535,6 +539,58 @@ export class DataService {
     this._orderReceptions.update(list => list.filter(o => o.id !== id));
     if (this.isServerId(id)) {
       this.del('orders/' + id).then(() => this.reloadOrders()).catch(e => console.error('deleteOrderReception', e));
+    }
+  }
+
+  // ==========================================
+  // DISPATCHES (envíos a locales)
+  // ==========================================
+  addDispatch(dispatch: Omit<Dispatch, 'id' | 'createdAt'>): Dispatch {
+    const newDispatch: Dispatch = { ...dispatch, id: this.generateId(), createdAt: new Date() };
+    this._dispatches.update(list => [newDispatch, ...list]);
+
+    this.post<Dispatch>('dispatches', {
+      locationId: dispatch.locationId, locationName: dispatch.locationName,
+      items: dispatch.items, dispatchedById: dispatch.dispatchedById,
+      dispatchedBy: dispatch.dispatchedBy, note: dispatch.note,
+    }).then(() => this.reloadDispatches()).catch(e => console.error('addDispatch', e));
+
+    // Enviar a un local descuenta del inventario central (vía updateProduct, que
+    // persiste el stock y dispara las alertas/WhatsApp si baja del mínimo).
+    this.applyDispatchStock(dispatch.items);
+
+    return newDispatch;
+  }
+
+  /** Suma las cantidades a descontar por producto y aplica la baja de stock. */
+  private applyDispatchStock(items: DispatchItem[]): void {
+    const deductions = new Map<string, number>();
+    for (const it of items) {
+      if (it.type === 'ingrediente') {
+        deductions.set(it.refId, (deductions.get(it.refId) ?? 0) + it.quantity);
+      } else {
+        // Una receta enviada consume sus ingredientes × la cantidad enviada.
+        const recipe = this._recipes().find(r => r.id === it.refId);
+        if (recipe) {
+          for (const ing of recipe.ingredients) {
+            deductions.set(ing.productId, (deductions.get(ing.productId) ?? 0) + ing.quantity * it.quantity);
+          }
+        }
+      }
+    }
+
+    for (const [productId, qty] of deductions) {
+      const product = this._products().find(p => p.id === productId);
+      if (product) {
+        this.updateProduct(productId, { currentStock: Math.max(0, product.currentStock - qty) });
+      }
+    }
+  }
+
+  deleteDispatch(id: string): void {
+    this._dispatches.update(list => list.filter(d => d.id !== id));
+    if (this.isServerId(id)) {
+      this.del('dispatches/' + id).then(() => this.reloadDispatches()).catch(e => console.error('deleteDispatch', e));
     }
   }
 

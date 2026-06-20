@@ -1,7 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, RouterOutlet } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-recipes',
@@ -22,9 +23,11 @@ import { MatIconModule } from '@angular/material/icon';
         <a routerLink="list" routerLinkActive="active" class="tab-btn">
           <mat-icon>list</mat-icon> Lista de Recetas
         </a>
-        <a routerLink="create" routerLinkActive="active" class="tab-btn">
-          <mat-icon>add_circle</mat-icon> Nueva Receta
-        </a>
+        @if (canManage()) {
+          <a routerLink="create" routerLinkActive="active" class="tab-btn">
+            <mat-icon>add_circle</mat-icon> Nueva Receta
+          </a>
+        }
       </div>
 
       <!-- Router Content -->
@@ -74,4 +77,7 @@ import { MatIconModule } from '@angular/material/icon';
     }
   `]
 })
-export class RecipesComponent {}
+export class RecipesComponent {
+  canManage = computed(() => this.auth.hasPermission('recipes.create'));
+  constructor(public auth: AuthService) {}
+}

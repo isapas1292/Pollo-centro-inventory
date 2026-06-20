@@ -109,3 +109,19 @@ public class RecepcionConfiguration : IEntityTypeConfiguration<Recepcion>
         b.Property(r => r.FechaRecepcion).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
     }
 }
+
+public class EnvioLocalConfiguration : IEntityTypeConfiguration<EnvioLocal>
+{
+    public void Configure(EntityTypeBuilder<EnvioLocal> b)
+    {
+        b.ToTable("Envios");
+        b.HasKey(e => e.IdEnvio);
+        b.Property(e => e.LocalNombre).HasMaxLength(150).IsRequired();
+        b.Property(e => e.ItemsJson).IsRequired();
+        b.Property(e => e.EnviadoPorId).HasMaxLength(50);
+        b.Property(e => e.EnviadoPor).HasMaxLength(150);
+        b.Property(e => e.Nota).HasMaxLength(500);
+        b.Property(e => e.FechaEnvio).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
+        b.HasIndex(e => e.FechaEnvio);
+    }
+}

@@ -177,6 +177,17 @@ CREATE TABLE dbo.Locales (
     Nombre VARCHAR(150) NOT NULL,
     Direccion VARCHAR(255) NULL,
     Estado BIT NOT NULL DEFAULT(1)
+);
+IF OBJECT_ID(N'dbo.Envios', N'U') IS NULL
+CREATE TABLE dbo.Envios (
+    IdEnvio INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    IdLocal INT NOT NULL,
+    LocalNombre VARCHAR(150) NOT NULL,
+    ItemsJson NVARCHAR(MAX) NOT NULL,
+    EnviadoPorId VARCHAR(50) NULL,
+    EnviadoPor VARCHAR(150) NULL,
+    Nota VARCHAR(500) NULL,
+    FechaEnvio DATETIME NOT NULL DEFAULT(getdate())
 );";
 
     private static Task EnsureTablesAsync(AppDbContext db, CancellationToken ct)

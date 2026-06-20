@@ -47,8 +47,8 @@ export const routes: Routes = [
         children: [
           { path: '', redirectTo: 'list', pathMatch: 'full' },
           { path: 'list', loadComponent: () => import('./features/recipes/recipe-list.component').then(m => m.RecipeListComponent) },
-          { path: 'create', loadComponent: () => import('./features/recipes/recipe-form.component').then(m => m.RecipeFormComponent) },
-          { path: 'edit/:id', loadComponent: () => import('./features/recipes/recipe-form.component').then(m => m.RecipeFormComponent) }
+          { path: 'create', canActivate: [roleGuard('recipes.create')], loadComponent: () => import('./features/recipes/recipe-form.component').then(m => m.RecipeFormComponent) },
+          { path: 'edit/:id', canActivate: [roleGuard('recipes.create')], loadComponent: () => import('./features/recipes/recipe-form.component').then(m => m.RecipeFormComponent) }
         ]
       },
       {
@@ -75,6 +75,11 @@ export const routes: Routes = [
         path: 'orders',
         canActivate: [roleGuard('orders.view')],
         loadComponent: () => import('./features/orders/orders.component').then(m => m.OrdersComponent)
+      },
+      {
+        path: 'dispatches',
+        canActivate: [roleGuard('dispatch.view')],
+        loadComponent: () => import('./features/dispatches/dispatches.component').then(m => m.DispatchesComponent)
       },
       {
         path: 'users',

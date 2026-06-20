@@ -572,6 +572,7 @@ export class LayoutComponent {
     },
     { icon: 'calendar_month', label: 'Horarios', route: '/schedule', permission: 'schedule.view' },
     { icon: 'restaurant', label: 'Recetas', route: '/recipes', permission: 'recipes.view' },
+    { icon: 'move_up', label: 'Envíos a Locales', route: '/dispatches', permission: 'dispatch.view' },
     { 
       icon: 'trending_up', 
       label: 'Precios', 

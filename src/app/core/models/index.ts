@@ -142,6 +142,28 @@ export interface OrderReception {
   status: 'pending' | 'completed' | 'cancelled';
 }
 
+// ===== Envíos a locales =====
+export type DispatchItemType = 'ingrediente' | 'receta';
+
+export interface DispatchItem {
+  type: DispatchItemType;
+  refId: string;       // productId o recipeId
+  name: string;
+  quantity: number;
+  unit?: string;
+}
+
+export interface Dispatch {
+  id: string;
+  locationId: string;
+  locationName: string;
+  items: DispatchItem[];
+  dispatchedById?: string;   // uid del usuario que registró el envío
+  dispatchedBy: string;      // nombre del usuario
+  note?: string;
+  createdAt: Date;
+}
+
 // ===== Contabilidad (módulo estilo QuickBooks, solo admin) =====
 export type AccountType = 'Activo' | 'Pasivo' | 'Capital' | 'Ingreso' | 'Gasto';
 export type TransactionType = 'ingreso' | 'gasto';
@@ -212,6 +234,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'suppliers.view', 'suppliers.edit', 'suppliers.create', 'suppliers.delete',
     'orders.view', 'orders.create', 'orders.edit',
     'accounting.view', 'accounting.edit',
+    'dispatch.view', 'dispatch.create',
   ],
   // Manager: gestión general SIN horarios ni recetas.
   manager: [
@@ -223,10 +246,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'audit.view',
     'suppliers.view', 'suppliers.create',
     'orders.view', 'orders.create',
+    'dispatch.view', 'dispatch.create',
   ],
-  // Operations: SOLO la pantalla de inventario (agregar/registrar entradas y salidas).
+  // Operations: inventario + preparar recetas (sin crear/editar) + envíos a locales.
   operations: [
     'inventory.view', 'inventory.create', 'inventory.edit',
+    'recipes.view', 'recipes.prepare',
+    'dispatch.view', 'dispatch.create',
   ],
 };
 

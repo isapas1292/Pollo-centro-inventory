@@ -21,6 +21,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<Alerta> Alertas => Set<Alerta>();
     public DbSet<Auditoria> Auditorias => Set<Auditoria>();
     public DbSet<Recepcion> Recepciones => Set<Recepcion>();
+    public DbSet<EnvioLocal> Envios => Set<EnvioLocal>();
     public DbSet<CuentaContable> CuentasContables => Set<CuentaContable>();
     public DbSet<TransaccionContable> TransaccionesContables => Set<TransaccionContable>();
     public DbSet<Local> Locales => Set<Local>();
