@@ -89,8 +89,19 @@ import { Product, RecipeIngredient } from '../../core/models';
 
         <!-- Summary -->
         <div class="summary-box">
-          <span>Costo Total Estimado:</span>
-          <span class="total-cost">{{ '$' }}{{ estimatedCost().toFixed(2) }}</span>
+          <div class="summary-row">
+            <span>Costo de producción (ingredientes):</span>
+            <span class="total-cost">RD$ {{ estimatedCost().toFixed(2) }}</span>
+          </div>
+          <div class="summary-row">
+            <span>Precio de venta al consumidor:</span>
+            <input type="number" min="0" step="0.01" class="price-input"
+                   [ngModel]="salePrice()" (ngModelChange)="salePrice.set(+$event || 0)" placeholder="0.00">
+          </div>
+          <div class="summary-row margin-row" [class.pos]="margin() >= 0" [class.neg]="margin() < 0">
+            <span>Margen de ganancia:</span>
+            <span>RD$ {{ margin().toFixed(2) }} ({{ marginPct().toFixed(1) }}%)</span>
+          </div>
         </div>
       </div>
 
@@ -166,12 +177,22 @@ import { Product, RecipeIngredient } from '../../core/models';
 
     /* Summary */
     .summary-box {
-      display: flex; justify-content: space-between; align-items: center;
-      background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2);
+      display: flex; flex-direction: column; gap: 12px;
+      background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2);
       padding: 16px 24px; border-radius: var(--pc-radius-md);
-      font-size: 1.1rem; font-weight: 600;
+      font-size: 1rem; font-weight: 600;
     }
-    .total-cost { font-size: 1.5rem; color: #34D399; font-family: var(--pc-font-heading); }
+    .summary-row { display: flex; justify-content: space-between; align-items: center; }
+    .total-cost { font-size: 1.3rem; color: #FBBF24; font-family: var(--pc-font-heading); }
+    .price-input {
+      width: 160px; text-align: right; background: rgba(0,0,0,0.25); border: 1px solid var(--pc-border);
+      border-radius: var(--pc-radius-sm); padding: 8px 12px; color: var(--pc-text-primary);
+      font-family: var(--pc-font-heading); font-size: 1.1rem;
+    }
+    .price-input:focus { outline: none; border-color: var(--pc-yellow); }
+    .margin-row { border-top: 1px dashed rgba(255,255,255,0.15); padding-top: 12px; font-size: 1.1rem; }
+    .margin-row.pos span:last-child { color: #34D399; font-family: var(--pc-font-heading); }
+    .margin-row.neg span:last-child { color: #F87171; font-family: var(--pc-font-heading); }
 
     /* Footer */
     .form-footer {
@@ -199,6 +220,7 @@ export class RecipeFormComponent implements OnInit {
   name = signal('');
   description = signal('');
   ingredients = signal<RecipeIngredient[]>([]);
+  salePrice = signal<number>(0);
 
   selectedProductId = signal('');
   selectedQuantity = signal<number>(1);
@@ -253,6 +275,9 @@ export class RecipeFormComponent implements OnInit {
     return total;
   });
 
+  margin = computed(() => this.salePrice() - this.estimatedCost());
+  marginPct = computed(() => this.salePrice() > 0 ? (this.margin() / this.salePrice()) * 100 : 0);
+
   // --- Methods ---
 
   loadRecipe(id: string) {
@@ -260,6 +285,7 @@ export class RecipeFormComponent implements OnInit {
     if (recipe) {
       this.name.set(recipe.name);
       this.description.set(recipe.description);
+      this.salePrice.set(recipe.salePrice ?? 0);
       // Create a deep copy of ingredients so we don't modify the state directly
       this.ingredients.set(JSON.parse(JSON.stringify(recipe.ingredients)));
     } else {
@@ -342,6 +368,7 @@ export class RecipeFormComponent implements OnInit {
       description: this.description(),
       ingredients: this.ingredients(),
       estimatedCost: this.estimatedCost(),
+      salePrice: this.salePrice(),
       createdBy: this.auth.user()?.displayName ?? 'Sistema'
     };
 

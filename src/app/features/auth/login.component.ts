@@ -317,7 +317,7 @@ export class LoginComponent {
   ) {
     // Redirect if already logged in
     if (this.authService.isLoggedIn()) {
-      this.router.navigate(['/dashboard']);
+      this.router.navigate([this.authService.homeRoute()]);
     }
   }
 
@@ -333,7 +333,7 @@ export class LoginComponent {
     try {
       const success = await this.authService.login(this.email, this.password);
       if (success) {
-        this.router.navigate(['/dashboard']);
+        this.router.navigate([this.authService.homeRoute()]);
       } else {
         this.error.set('Credenciales incorrectas');
       }

@@ -564,6 +564,7 @@ export class LayoutComponent {
       permission: 'reports.view',
       children: [
         { icon: 'analytics', label: 'Resumen General', route: '/reports/dashboard', permission: 'reports.view' },
+        { icon: 'percent', label: 'Margen de Ganancia', route: '/reports/margin', permission: 'reports.view' },
         { icon: 'list_alt', label: 'Cierre de Inventario', route: '/reports/closing-inventory', permission: 'reports.view' },
         { icon: 'history', label: 'Actividad de Inventario', route: '/reports/inventory-activity', permission: 'reports.view' },
         { icon: 'trending_down', label: 'Pérdidas y Ganancias', route: '/reports/loss-statement', permission: 'reports.view' }
@@ -597,7 +598,11 @@ export class LayoutComponent {
   ];
 
   visibleNavItems = computed(() =>
-    this.navItems.filter(item => this.auth.hasPermission(item.permission))
+    this.navItems
+      .filter(item => this.auth.hasPermission(item.permission))
+      .map(item => item.children
+        ? { ...item, children: item.children.filter(c => this.auth.hasPermission(c.permission)) }
+        : item)
   );
 
   activeAlertCount = computed(() => this.dataService.activeAlerts().length);

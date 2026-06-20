@@ -9,34 +9,40 @@ export const routes: Routes = [
   {
     path: '',
     component: LayoutComponent,
-    canActivate: [authGuard, adminGuard],
+    canActivate: [authGuard],
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
-      { 
-        path: 'dashboard', 
-        component: DashboardComponent 
+      {
+        path: 'dashboard',
+        component: DashboardComponent,
+        canActivate: [roleGuard('dashboard.view')]
       },
-      { 
-        path: 'inventory', 
-        loadComponent: () => import('./features/inventory/inventory.component').then(m => m.InventoryComponent) 
+      {
+        path: 'inventory',
+        canActivate: [roleGuard('inventory.view')],
+        loadComponent: () => import('./features/inventory/inventory.component').then(m => m.InventoryComponent)
       },
-      { 
-        path: 'reports', 
+      {
+        path: 'reports',
+        canActivate: [roleGuard('reports.view')],
         loadComponent: () => import('./features/reports/reports.component').then(m => m.ReportsComponent),
         children: [
           { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
           { path: 'dashboard', loadComponent: () => import('./features/reports/reports-dashboard.component').then(m => m.ReportsDashboardComponent) },
+          { path: 'margin', loadComponent: () => import('./features/reports/margin-report.component').then(m => m.MarginReportComponent) },
           { path: 'closing-inventory', loadComponent: () => import('./features/reports/closing-inventory.component').then(m => m.ClosingInventoryComponent) },
           { path: 'inventory-activity', loadComponent: () => import('./features/reports/inventory-activity.component').then(m => m.InventoryActivityComponent) },
           { path: 'loss-statement', loadComponent: () => import('./features/reports/loss-statement.component').then(m => m.LossStatementComponent) }
         ]
       },
-      { 
-        path: 'schedule', 
-        loadComponent: () => import('./features/schedule/schedule.component').then(m => m.ScheduleComponent) 
+      {
+        path: 'schedule',
+        canActivate: [roleGuard('schedule.view')],
+        loadComponent: () => import('./features/schedule/schedule.component').then(m => m.ScheduleComponent)
       },
-      { 
-        path: 'recipes', 
+      {
+        path: 'recipes',
+        canActivate: [roleGuard('recipes.view')],
         loadComponent: () => import('./features/recipes/recipes.component').then(m => m.RecipesComponent),
         children: [
           { path: '', redirectTo: 'list', pathMatch: 'full' },
@@ -45,8 +51,9 @@ export const routes: Routes = [
           { path: 'edit/:id', loadComponent: () => import('./features/recipes/recipe-form.component').then(m => m.RecipeFormComponent) }
         ]
       },
-      { 
-        path: 'prices', 
+      {
+        path: 'prices',
+        canActivate: [roleGuard('prices.view')],
         loadComponent: () => import('./features/prices/prices.component').then(m => m.PricesComponent),
         children: [
           { path: '', redirectTo: 'list', pathMatch: 'full' },
@@ -54,20 +61,24 @@ export const routes: Routes = [
           { path: 'reports', loadComponent: () => import('./features/prices/price-reports.component').then(m => m.PriceReportsComponent) }
         ]
       },
-      { 
-        path: 'alerts', 
-        loadComponent: () => import('./features/alerts/alerts.component').then(m => m.AlertsComponent) 
+      {
+        path: 'alerts',
+        canActivate: [roleGuard('alerts.view')],
+        loadComponent: () => import('./features/alerts/alerts.component').then(m => m.AlertsComponent)
       },
-      { 
-        path: 'suppliers', 
-        loadComponent: () => import('./features/suppliers/suppliers.component').then(m => m.SuppliersComponent) 
+      {
+        path: 'suppliers',
+        canActivate: [roleGuard('suppliers.view')],
+        loadComponent: () => import('./features/suppliers/suppliers.component').then(m => m.SuppliersComponent)
       },
-      { 
-        path: 'orders', 
-        loadComponent: () => import('./features/orders/orders.component').then(m => m.OrdersComponent) 
+      {
+        path: 'orders',
+        canActivate: [roleGuard('orders.view')],
+        loadComponent: () => import('./features/orders/orders.component').then(m => m.OrdersComponent)
       },
       {
         path: 'users',
+        canActivate: [roleGuard('users.view')],
         loadComponent: () => import('./features/users/users.component').then(m => m.UsersComponent)
       },
       {
@@ -83,5 +94,5 @@ export const routes: Routes = [
       }
     ]
   },
-  { path: '**', redirectTo: '/dashboard' }
+  { path: '**', redirectTo: '' }
 ];

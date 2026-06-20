@@ -15,7 +15,13 @@ public class RecipeDto
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public List<RecipeIngredientDto> Ingredients { get; set; } = new();
+
+    /// <summary>Costo de producción, calculado de los ingredientes (cantidad × costo unitario).</summary>
     public decimal EstimatedCost { get; set; }
+
+    /// <summary>Precio de venta al consumidor (almacenado).</summary>
+    public decimal SalePrice { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public string CreatedBy { get; set; } = string.Empty;
 }
@@ -28,6 +34,10 @@ public class RecipeInput
     public string? Description { get; set; }
     public List<RecipeIngredientDto> Ingredients { get; set; } = new();
     public decimal EstimatedCost { get; set; }
+
+    /// <summary>Precio de venta al consumidor.</summary>
+    public decimal SalePrice { get; set; }
+
     public string? CreatedBy { get; set; }
 }
 

@@ -69,7 +69,8 @@ export interface Recipe {
   name: string;
   description: string;
   ingredients: RecipeIngredient[];
-  estimatedCost: number;
+  estimatedCost: number;   // costo de producción (calculado de los ingredientes)
+  salePrice: number;       // precio de venta al consumidor
   createdAt: Date;
   createdBy: string;
 }
@@ -212,28 +213,20 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'orders.view', 'orders.create', 'orders.edit',
     'accounting.view', 'accounting.edit',
   ],
+  // Manager: gestión general SIN horarios ni recetas.
   manager: [
     'dashboard.view',
     'inventory.view', 'inventory.edit', 'inventory.create',
-    'recipes.view', 'recipes.create', 'recipes.prepare',
     'prices.view', 'prices.edit',
     'reports.view',
-    'schedule.view', 'schedule.edit',
     'alerts.view', 'alerts.configure',
     'audit.view',
     'suppliers.view', 'suppliers.create',
     'orders.view', 'orders.create',
   ],
+  // Operations: SOLO la pantalla de inventario (agregar/registrar entradas y salidas).
   operations: [
-    'dashboard.view',
-    'inventory.view',
-    'recipes.view', 'recipes.prepare',
-    'prices.view',
-    'reports.view',
-    'schedule.view',
-    'alerts.view',
-    'suppliers.view',
-    'orders.view',
+    'inventory.view', 'inventory.create', 'inventory.edit',
   ],
 };
 

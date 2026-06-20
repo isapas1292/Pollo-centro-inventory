@@ -62,6 +62,11 @@ export class AuthService {
     return permissions.some(p => this.hasPermission(p));
   }
 
+  /** Ruta inicial según el rol (operations solo tiene la pantalla de inventario). */
+  homeRoute(): string {
+    return this.userRole() === 'operations' ? '/inventory' : '/dashboard';
+  }
+
   private setUser(user: AppUser): void {
     this.currentUser.set(user);
     localStorage.setItem('pc_user', JSON.stringify(user));

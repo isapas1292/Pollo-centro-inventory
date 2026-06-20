@@ -28,7 +28,8 @@ export const roleGuard = (...permissions: string[]): CanActivateFn => {
       return true;
     }
 
-    router.navigate(['/dashboard']);
+    // Sin permiso: lo enviamos a la pantalla inicial de su rol (evita bucles).
+    router.navigate([auth.homeRoute()]);
     return false;
   };
 };

@@ -43,6 +43,9 @@ public static class DatabaseInitializer
         // Asigna local a las transacciones contables existentes que aún no lo tengan.
         await BackfillTransactionLocationsAsync(db, ct);
 
+        // Asegura un precio de venta con margen en recetas que aún no lo tengan.
+        await BackfillRecipeSalePricesAsync(db, ct);
+
         if (!seedData) return;
 
         await SeedExtraUsersAsync(db, hasher, ct);
@@ -260,7 +263,8 @@ CREATE TABLE dbo.Locales (
                 Descripcion = desc,
                 Porciones = 1,
                 Estado = true,
-                PrecioVenta = ings.Sum(i => i.qty * i.p.CostoUnitario),
+                // Precio de venta al consumidor ≈ costo × 2.8 (margen ~64%, food cost ~36%).
+                PrecioVenta = Math.Round(ings.Sum(i => i.qty * i.p.CostoUnitario) * 2.8m, 2),
                 RecetaIngredientes = ings.Select(i => new RecetaIngrediente
                 {
                     IdProducto = i.p.IdProducto,
@@ -506,6 +510,30 @@ CREATE TABLE dbo.Locales (
                 db.Locales.Add(new Local { Codigo = id, Nombre = nombre, Estado = true });
         }
         await db.SaveChangesAsync(ct);
+    }
+
+    private static async Task BackfillRecipeSalePricesAsync(AppDbContext db, CancellationToken ct)
+    {
+        var recetas = await db.Recetas.Include(r => r.RecetaIngredientes).ToListAsync(ct);
+        if (recetas.Count == 0) return;
+
+        var productIds = recetas.SelectMany(r => r.RecetaIngredientes.Select(ri => ri.IdProducto)).Distinct().ToList();
+        var costos = await db.Productos
+            .Where(p => productIds.Contains(p.IdProducto))
+            .ToDictionaryAsync(p => p.IdProducto, p => p.CostoUnitario, ct);
+
+        var changed = false;
+        foreach (var r in recetas)
+        {
+            var costo = r.RecetaIngredientes.Sum(ri => ri.CantidadNecesaria * (costos.TryGetValue(ri.IdProducto, out var c) ? c : 0));
+            // Si prácticamente no hay margen (precio de venta <= costo×1.05), asigna un precio con markup.
+            if ((r.PrecioVenta ?? 0) <= costo * 1.05m && costo > 0)
+            {
+                r.PrecioVenta = Math.Round(costo * 2.8m, 2);
+                changed = true;
+            }
+        }
+        if (changed) await db.SaveChangesAsync(ct);
     }
 
     private static async Task BackfillTransactionLocationsAsync(AppDbContext db, CancellationToken ct)

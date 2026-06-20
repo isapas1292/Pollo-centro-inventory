@@ -22,7 +22,8 @@ public class RecipeService : IRecipeService
                 Id = r.IdReceta.ToString(),
                 Name = r.NombreReceta,
                 Description = r.Descripcion ?? string.Empty,
-                EstimatedCost = r.PrecioVenta ?? 0,
+                EstimatedCost = r.RecetaIngredientes.Sum(ri => ri.CantidadNecesaria * ri.Producto.CostoUnitario),
+                SalePrice = r.PrecioVenta ?? 0,
                 CreatedAt = r.FechaCreacion ?? DateTime.Now,
                 Ingredients = r.RecetaIngredientes.Select(ri => new RecipeIngredientDto
                 {
@@ -40,7 +41,7 @@ public class RecipeService : IRecipeService
         {
             NombreReceta = input.Name,
             Descripcion = input.Description,
-            PrecioVenta = input.EstimatedCost,
+            PrecioVenta = input.SalePrice,
             Porciones = 1,
             Estado = true,
             RecetaIngredientes = await BuildIngredientesAsync(input.Ingredients, cancellationToken)
@@ -61,7 +62,7 @@ public class RecipeService : IRecipeService
 
         receta.NombreReceta = input.Name;
         receta.Descripcion = input.Description;
-        receta.PrecioVenta = input.EstimatedCost;
+        receta.PrecioVenta = input.SalePrice;
 
         // Reemplaza la lista de ingredientes.
         _db.RecetaIngredientes.RemoveRange(receta.RecetaIngredientes);
@@ -209,7 +210,8 @@ public class RecipeService : IRecipeService
                 Id = r.IdReceta.ToString(),
                 Name = r.NombreReceta,
                 Description = r.Descripcion ?? string.Empty,
-                EstimatedCost = r.PrecioVenta ?? 0,
+                EstimatedCost = r.RecetaIngredientes.Sum(ri => ri.CantidadNecesaria * ri.Producto.CostoUnitario),
+                SalePrice = r.PrecioVenta ?? 0,
                 CreatedAt = r.FechaCreacion ?? DateTime.Now,
                 Ingredients = r.RecetaIngredientes.Select(ri => new RecipeIngredientDto
                 {

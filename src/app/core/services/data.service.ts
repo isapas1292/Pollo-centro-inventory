@@ -178,7 +178,7 @@ export class DataService {
     this.post<Recipe>('recipes', {
       name: recipe.name, description: recipe.description,
       ingredients: recipe.ingredients, estimatedCost: recipe.estimatedCost,
-      createdBy: recipe.createdBy,
+      salePrice: recipe.salePrice, createdBy: recipe.createdBy,
     }).then(() => this.reloadRecipes()).catch(e => console.error('addRecipe', e));
 
     return newRecipe;
@@ -191,7 +191,7 @@ export class DataService {
       this.put('recipes/' + id, {
         name: recipe.name, description: recipe.description,
         ingredients: recipe.ingredients, estimatedCost: recipe.estimatedCost,
-        createdBy: recipe.createdBy,
+        salePrice: recipe.salePrice, createdBy: recipe.createdBy,
       }).then(() => this.reloadRecipes()).catch(e => console.error('updateRecipe', e));
     }
   }
