@@ -13,29 +13,31 @@ export class AuthService {
   readonly userRole = computed(() => this.currentUser()?.role ?? null);
   readonly userName = computed(() => this.currentUser()?.displayName ?? '');
 
+  private readonly api = 'http://localhost:3000/api/auth';
+
   constructor(private router: Router, private http: HttpClient) {
-    // Restore session
+    // El token vive en una cookie HttpOnly (no accesible a JS). Restauramos el perfil
+    // guardado para la UI y renovamos la sesión contra el backend; si la cookie ya no
+    // es válida, el backend responde 401 y el interceptor limpia la sesión.
     const stored = localStorage.getItem('pc_user');
-    const token = localStorage.getItem('pc_token');
-    if (stored && token && !this.isTokenExpired(token)) {
+    if (stored) {
       try {
         this.currentUser.set(JSON.parse(stored));
+        this.refresh();
       } catch {
         this.clearSession();
       }
-    } else {
-      this.clearSession();
     }
   }
 
   async login(email: string, password: string): Promise<boolean> {
     try {
       const response = await firstValueFrom(
-        this.http.post<{token: string, user: AppUser}>('http://localhost:3000/api/auth/login', { email, password })
+        this.http.post<{ token: string, user: AppUser }>(`${this.api}/login`, { email, password }, { withCredentials: true })
       );
-      
-      if (response && response.token && response.user) {
-        localStorage.setItem('pc_token', response.token);
+
+      // El token NO se guarda en JS: queda en la cookie HttpOnly que pone el backend.
+      if (response && response.user) {
         this.setUser(response.user);
         return true;
       }
@@ -47,9 +49,22 @@ export class AuthService {
   }
 
   logout(): void {
+    // Pide al backend que borre la cookie; pase lo que pase, limpiamos en local.
+    this.http.post(`${this.api}/logout`, {}, { withCredentials: true }).subscribe({
+      next: () => {},
+      error: () => {}
+    });
     this.currentUser.set(null);
     this.clearSession();
     this.router.navigate(['/login']);
+  }
+
+  /** Renueva la sesión (sliding) y valida que la cookie siga vigente. */
+  private refresh(): void {
+    this.http.post<{ user: AppUser }>(`${this.api}/refresh`, {}, { withCredentials: true }).subscribe({
+      next: res => { if (res?.user) this.setUser(res.user); },
+      error: () => { /* 401 lo maneja el interceptor */ }
+    });
   }
 
   hasPermission(permission: string): boolean {
@@ -76,14 +91,5 @@ export class AuthService {
     this.currentUser.set(null);
     localStorage.removeItem('pc_user');
     localStorage.removeItem('pc_token');
-  }
-
-  private isTokenExpired(token: string): boolean {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1] ?? '')) as { exp?: number };
-      return !payload.exp || payload.exp * 1000 <= Date.now();
-    } catch {
-      return true;
-    }
   }
 }

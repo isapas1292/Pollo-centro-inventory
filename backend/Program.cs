@@ -1,3 +1,6 @@
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using PolloCentro.Api.Api.Middleware;
 using PolloCentro.Api.Application;
 using PolloCentro.Api.Infrastructure;
@@ -18,15 +21,53 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
 
-// CORS: orígenes configurables (Cors:AllowedOrigins). Sin orígenes definidos → abierto.
+// CORS: orígenes EXPLÍCITOS y con credenciales (la cookie de auth viaja entre orígenes).
+// No se permite AllowAnyOrigin porque es incompatible con AllowCredentials y menos seguro.
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+if (builder.Environment.IsDevelopment())
+    allowedOrigins = allowedOrigins
+        .Concat(["http://localhost:4200", "http://localhost:4300"])
+        .Distinct()
+        .ToArray();
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
+    policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
+
+// Reverse proxy: respeta X-Forwarded-For / -Proto para conocer la IP y el esquema reales
+// (necesario para el rate limiting por IP y la redirección a HTTPS detrás de un proxy).
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
-    if (allowedOrigins.Length > 0)
-        policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod();
-    else
-        policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
-}));
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    // En producción conviene restringir a los proxies/redes conocidos (KnownProxies/KnownNetworks).
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
+// Rate limiting: protege contra abuso y fuerza bruta.
+//  - Global: por IP, un tope por minuto (anti-ráfaga) y un tope diario.
+//  - Política "auth": límite estricto para el login (anti fuerza bruta).
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    static string ClientKey(HttpContext ctx) =>
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+    options.GlobalLimiter = PartitionedRateLimiter.CreateChained(
+        // Tope por minuto: frena ráfagas y ataques de denegación de servicio.
+        PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
+            RateLimitPartition.GetFixedWindowLimiter(ClientKey(ctx), _ =>
+                new FixedWindowRateLimiterOptions { PermitLimit = 200, Window = TimeSpan.FromMinutes(1) })),
+        // Tope diario por IP.
+        PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
+            RateLimitPartition.GetFixedWindowLimiter(ClientKey(ctx), _ =>
+                new FixedWindowRateLimiterOptions { PermitLimit = 20000, Window = TimeSpan.FromDays(1) })));
+
+    // Login: máx. 20 intentos por IP cada 15 minutos (anti fuerza bruta, pero
+    // tolerante a una oficina con varios empleados detrás de una sola IP/NAT).
+    options.AddPolicy("auth", ctx =>
+        RateLimitPartition.GetFixedWindowLimiter(ClientKey(ctx), _ =>
+            new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(15) }));
+});
 
 var app = builder.Build();
 
@@ -55,17 +96,39 @@ await DatabaseInitializer.InitializeAsync(app.Services, seedData: seedOnStartup)
 // ----------------------------------------------------------------------------
 // Pipeline HTTP
 // ----------------------------------------------------------------------------
+// Respeta las cabeceras del proxy inverso (debe ir lo más arriba posible).
+app.UseForwardedHeaders();
+
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+// Producción: fuerza HTTPS y activa HSTS.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+    app.UseHttpsRedirection();
+}
+
+// Cabeceras de seguridad básicas en todas las respuestas.
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers["X-Content-Type-Options"] = "nosniff";
+    headers["X-Frame-Options"] = "DENY";
+    headers["Referrer-Policy"] = "no-referrer";
+    headers["X-XSS-Protection"] = "0";
+    await next();
+});
 
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
 app.UseCors();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health").AllowAnonymous();
 
 var port = Environment.GetEnvironmentVariable("PORT") ?? "3000";
 app.Urls.Add($"http://localhost:{port}");

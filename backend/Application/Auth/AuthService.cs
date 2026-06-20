@@ -55,17 +55,39 @@ public class AuthService : IAuthService
         var token = _tokenGenerator.GenerateToken(user.IdUsuario, user.Rol, user.Correo);
         _logger.LogInformation("Usuario {Correo} inició sesión correctamente", user.Correo);
 
-        return new LoginResponse
-        {
-            Token = token,
-            User = new AppUserDto
-            {
-                Uid = user.IdUsuario.ToString(),
-                Email = user.Correo,
-                DisplayName = $"{user.Nombre} {user.Apellido}".Trim(),
-                Role = user.Rol,
-                Active = user.Estado
-            }
-        };
+        return BuildResponse(user.IdUsuario, user.Nombre, user.Apellido, user.Correo, user.Rol, user.Estado, token);
     }
+
+    public async Task<LoginResponse> RefreshAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        var user = await _db.Usuarios
+            .AsNoTracking()
+            .Where(u => u.IdUsuario == userId)
+            .Select(u => new
+            {
+                u.IdUsuario, u.Nombre, u.Apellido, u.Correo, u.Estado,
+                Rol = u.Rol.NombreRol
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (user is null || user.Estado != true)
+            throw new UnauthorizedException("Sesión inválida o usuario inactivo");
+
+        var token = _tokenGenerator.GenerateToken(user.IdUsuario, user.Rol, user.Correo);
+        return BuildResponse(user.IdUsuario, user.Nombre, user.Apellido, user.Correo, user.Rol, user.Estado, token);
+    }
+
+    private static LoginResponse BuildResponse(
+        int id, string? nombre, string? apellido, string correo, string rol, bool? estado, string token) => new()
+    {
+        Token = token,
+        User = new AppUserDto
+        {
+            Uid = id.ToString(),
+            Email = correo,
+            DisplayName = $"{nombre} {apellido}".Trim(),
+            Role = rol,
+            Active = estado
+        }
+    };
 }

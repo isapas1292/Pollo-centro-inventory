@@ -19,11 +19,21 @@ public class SupplierDto
 public class SupplierInput
 {
     [Required(ErrorMessage = "El nombre del proveedor es requerido")]
+    [StringLength(150, MinimumLength = 1)]
     [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
 
+    [StringLength(150)]
     [JsonPropertyName("contactName")] public string? ContactName { get; set; }
+
+    [StringLength(30)]
     [JsonPropertyName("phone")] public string? Phone { get; set; }
+
+    [EmailAddress(ErrorMessage = "Correo inválido")]
+    [StringLength(150)]
     [JsonPropertyName("email")] public string? Email { get; set; }
+
     [JsonPropertyName("active")] public bool? Active { get; set; }
+
+    [StringLength(500)]
     [JsonPropertyName("notes")] public string? Notes { get; set; }
 }

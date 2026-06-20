@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PolloCentro.Api.Application.Audit;
 
@@ -5,6 +6,7 @@ namespace PolloCentro.Api.Api.Controllers;
 
 [ApiController]
 [Route("api/audit")]
+[Authorize(Roles = "admin,manager")]
 public class AuditController : ControllerBase
 {
     private readonly IAuditService _audit;

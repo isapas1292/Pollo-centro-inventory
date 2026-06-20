@@ -4,22 +4,22 @@ import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
 
 /**
- * Adjunta el token JWT (guardado en localStorage tras el login) a cada petición
- * saliente como cabecera Authorization: Bearer. Necesario para los endpoints
- * protegidos del backend (p. ej. el módulo de Contabilidad, solo-admin).
+ * Autenticación por cookie HttpOnly: el JWT lo gestiona el navegador en una cookie
+ * que NO es accesible desde JavaScript (protección frente a robo por XSS). Aquí solo
+ * activamos `withCredentials` para que la cookie viaje en cada petición, y ante un 401
+ * limpiamos el perfil local y redirigimos al login.
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const router = inject(Router);
-  const token = localStorage.getItem('pc_token');
-  if (token) {
-    req = req.clone({ setHeaders: { Authorization: `Bearer ${token}` } });
-  }
+
+  req = req.clone({ withCredentials: true });
+
   return next(req).pipe(
     catchError(error => {
       if (error?.status === 401) {
         localStorage.removeItem('pc_user');
-        localStorage.removeItem('pc_token');
-        router.navigate(['/login']);
+        localStorage.removeItem('pc_token'); // limpieza de sesiones antiguas
+        if (!router.url.startsWith('/login')) router.navigate(['/login']);
       }
       return throwError(() => error);
     })
