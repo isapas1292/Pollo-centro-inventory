@@ -40,6 +40,9 @@ import { Recipe } from '../../core/models';
             <div class="meta-item cost-highlight">
               <mat-icon>attach_money</mat-icon> \${{ recipe.estimatedCost.toFixed(2) }} (Costo)
             </div>
+            <div class="meta-item stock-highlight">
+              <mat-icon>inventory_2</mat-icon> {{ recipe.preparedStock || 0 }} en stock (hechas)
+            </div>
           </div>
 
           @if (canPrepare()) {
@@ -168,6 +171,8 @@ import { Recipe } from '../../core/models';
 
     .cost-highlight { color: #10B981; font-weight: 600; }
     .cost-highlight mat-icon { color: #10B981; }
+    .stock-highlight { color: #60A5FA; font-weight: 600; }
+    .stock-highlight mat-icon { color: #60A5FA; }
 
     .recipe-footer {
       border-top: 1px solid rgba(255,255,255,0.05);

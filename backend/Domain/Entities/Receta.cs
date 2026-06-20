@@ -12,5 +12,8 @@ public class Receta
     public DateTime? FechaCreacion { get; set; }
     public bool? Estado { get; set; }
 
+    /// <summary>Unidades ya preparadas disponibles (sube al preparar, baja al enviar a un local).</summary>
+    public decimal StockPreparado { get; set; }
+
     public ICollection<RecetaIngrediente> RecetaIngredientes { get; set; } = new List<RecetaIngrediente>();
 }

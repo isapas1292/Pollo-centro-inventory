@@ -22,6 +22,9 @@ public class RecipeDto
     /// <summary>Precio de venta al consumidor (almacenado).</summary>
     public decimal SalePrice { get; set; }
 
+    /// <summary>Unidades ya preparadas disponibles en inventario.</summary>
+    public decimal PreparedStock { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public string CreatedBy { get; set; } = string.Empty;
 }

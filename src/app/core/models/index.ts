@@ -71,6 +71,7 @@ export interface Recipe {
   ingredients: RecipeIngredient[];
   estimatedCost: number;   // costo de producción (calculado de los ingredientes)
   salePrice: number;       // precio de venta al consumidor
+  preparedStock?: number;  // unidades ya preparadas disponibles en inventario
   createdAt: Date;
   createdBy: string;
 }

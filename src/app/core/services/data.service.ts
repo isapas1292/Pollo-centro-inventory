@@ -238,9 +238,13 @@ export class DataService {
     };
     this._recipeLogs.update(list => [log, ...list]);
 
+    // La receta queda "hecha" en inventario (stock preparado sube).
+    this._recipes.update(list => list.map(r =>
+      r.id === recipeId ? { ...r, preparedStock: (r.preparedStock ?? 0) + quantity } : r));
+
     if (this.isServerId(recipeId)) {
       this.post('recipes/' + recipeId + '/prepare', { preparedBy, quantity })
-        .then(() => { this.reloadProducts(); this.reloadRecipeLogs(); })
+        .then(() => { this.reloadProducts(); this.reloadRecipeLogs(); this.reloadRecipes(); })
         .catch(e => console.error('prepareRecipe', e));
     }
     return log;
@@ -553,29 +557,35 @@ export class DataService {
       locationId: dispatch.locationId, locationName: dispatch.locationName,
       items: dispatch.items, dispatchedById: dispatch.dispatchedById,
       dispatchedBy: dispatch.dispatchedBy, note: dispatch.note,
-    }).then(() => this.reloadDispatches()).catch(e => console.error('addDispatch', e));
+    }).then(() => {
+      this.reloadDispatches();
+      // El backend descuenta el stock de recetas preparadas; refrescamos.
+      if (dispatch.items.some(it => it.type === 'receta')) this.reloadRecipes();
+    }).catch(e => console.error('addDispatch', e));
 
-    // Enviar a un local descuenta del inventario central (vía updateProduct, que
-    // persiste el stock y dispara las alertas/WhatsApp si baja del mínimo).
+    // Los INGREDIENTES sueltos enviados se descuentan del inventario aquí (vía
+    // updateProduct, que persiste y dispara alertas/WhatsApp si baja del mínimo).
+    // Las RECETAS no descuentan ingredientes (ya se descontaron al prepararlas);
+    // el backend baja su "stock preparado".
     this.applyDispatchStock(dispatch.items);
+
+    // Refleja de forma optimista la baja del stock preparado de las recetas enviadas.
+    for (const it of dispatch.items) {
+      if (it.type === 'receta') {
+        this._recipes.update(list => list.map(r =>
+          r.id === it.refId ? { ...r, preparedStock: Math.max(0, (r.preparedStock ?? 0) - it.quantity) } : r));
+      }
+    }
 
     return newDispatch;
   }
 
-  /** Suma las cantidades a descontar por producto y aplica la baja de stock. */
+  /** Descuenta del inventario solo los ingredientes sueltos enviados. */
   private applyDispatchStock(items: DispatchItem[]): void {
     const deductions = new Map<string, number>();
     for (const it of items) {
       if (it.type === 'ingrediente') {
         deductions.set(it.refId, (deductions.get(it.refId) ?? 0) + it.quantity);
-      } else {
-        // Una receta enviada consume sus ingredientes × la cantidad enviada.
-        const recipe = this._recipes().find(r => r.id === it.refId);
-        if (recipe) {
-          for (const ing of recipe.ingredients) {
-            deductions.set(ing.productId, (deductions.get(ing.productId) ?? 0) + ing.quantity * it.quantity);
-          }
-        }
       }
     }
 

@@ -170,6 +170,8 @@ IF COL_LENGTH(N'dbo.TransaccionesContables', 'UbicacionId') IS NULL
     ALTER TABLE dbo.TransaccionesContables ADD UbicacionId VARCHAR(50) NULL;
 IF COL_LENGTH(N'dbo.TransaccionesContables', 'UbicacionNombre') IS NULL
     ALTER TABLE dbo.TransaccionesContables ADD UbicacionNombre VARCHAR(150) NULL;
+IF OBJECT_ID(N'dbo.Recetas', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.Recetas', 'StockPreparado') IS NULL
+    ALTER TABLE dbo.Recetas ADD StockPreparado DECIMAL(10,2) NOT NULL DEFAULT(0);
 IF OBJECT_ID(N'dbo.Locales', N'U') IS NULL
 CREATE TABLE dbo.Locales (
     IdLocal INT IDENTITY(1,1) NOT NULL PRIMARY KEY,

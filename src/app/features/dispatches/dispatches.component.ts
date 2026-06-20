@@ -92,7 +92,9 @@ import { Dispatch, DispatchItem, DispatchItemType } from '../../core/models';
                 @if (draftType === 'ingrediente') {
                   @for (p of products(); track p.id) { <option [value]="p.id">{{ p.name }}</option> }
                 } @else {
-                  @for (r of recipes(); track r.id) { <option [value]="r.id">{{ r.name }}</option> }
+                  @for (r of recipes(); track r.id) {
+                    <option [value]="r.id" [disabled]="(r.preparedStock || 0) <= 0">{{ r.name }} ({{ r.preparedStock || 0 }} hechas)</option>
+                  }
                 }
               </select>
               <input class="field-input qty" type="number" min="1" [(ngModel)]="draftQty" placeholder="Cant." />
@@ -253,6 +255,13 @@ export class DispatchesComponent {
     } else {
       const r = this.recipes().find(x => x.id === this.draftRefId);
       if (!r) return;
+      const available = r.preparedStock ?? 0;
+      const already = this.items().filter(i => i.type === 'receta' && i.refId === r.id)
+        .reduce((s, i) => s + i.quantity, 0);
+      if (this.draftQty + already > available) {
+        this.showToast(`Solo hay ${available} "${r.name}" hechas en stock`);
+        return;
+      }
       name = r.name;
     }
     const item: DispatchItem = { type: this.draftType, refId: this.draftRefId, name, quantity: this.draftQty, unit };

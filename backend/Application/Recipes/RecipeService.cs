@@ -24,6 +24,7 @@ public class RecipeService : IRecipeService
                 Description = r.Descripcion ?? string.Empty,
                 EstimatedCost = r.RecetaIngredientes.Sum(ri => ri.CantidadNecesaria * ri.Producto.CostoUnitario),
                 SalePrice = r.PrecioVenta ?? 0,
+                PreparedStock = r.StockPreparado,
                 CreatedAt = r.FechaCreacion ?? DateTime.Now,
                 Ingredients = r.RecetaIngredientes.Select(ri => new RecipeIngredientDto
                 {
@@ -136,6 +137,9 @@ public class RecipeService : IRecipeService
         };
         _db.RegistroPreparaciones.Add(registro);
 
+        // La receta queda "hecha" en inventario.
+        receta.StockPreparado += quantity;
+
         await _db.SaveChangesAsync(cancellationToken);
 
         return new RecipeLogDto
@@ -212,6 +216,7 @@ public class RecipeService : IRecipeService
                 Description = r.Descripcion ?? string.Empty,
                 EstimatedCost = r.RecetaIngredientes.Sum(ri => ri.CantidadNecesaria * ri.Producto.CostoUnitario),
                 SalePrice = r.PrecioVenta ?? 0,
+                PreparedStock = r.StockPreparado,
                 CreatedAt = r.FechaCreacion ?? DateTime.Now,
                 Ingredients = r.RecetaIngredientes.Select(ri => new RecipeIngredientDto
                 {
