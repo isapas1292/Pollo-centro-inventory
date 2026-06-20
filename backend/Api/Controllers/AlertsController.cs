@@ -42,6 +42,14 @@ public class AlertsController : ControllerBase
         return Ok(new { success = true });
     }
 
+    /// <summary>Envía (o reenvía) la alerta por WhatsApp al número configurado.</summary>
+    [HttpPost("{id:int}/notify")]
+    public async Task<IActionResult> Notify(int id, CancellationToken cancellationToken)
+    {
+        var sent = await _alerts.NotifyAsync(id, cancellationToken);
+        return Ok(new { success = sent });
+    }
+
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {

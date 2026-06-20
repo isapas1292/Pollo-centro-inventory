@@ -32,5 +32,7 @@ public interface IAlertService
     Task<AlertDto> UpdateAsync(int id, AlertInput input, CancellationToken cancellationToken = default);
     Task ResolveAsync(int id, CancellationToken cancellationToken = default);
     Task MarkWhatsappAsync(int id, CancellationToken cancellationToken = default);
+    /// <summary>Reenvía la alerta por WhatsApp y la marca como enviada si tiene éxito.</summary>
+    Task<bool> NotifyAsync(int id, CancellationToken cancellationToken = default);
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
 }

@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using PolloCentro.Api.Application.Abstractions.Notifications;
 using PolloCentro.Api.Application.Common.Exceptions;
 using PolloCentro.Api.Application.Common.Interfaces;
 using PolloCentro.Api.Domain.Entities;
@@ -8,8 +10,15 @@ namespace PolloCentro.Api.Application.Alerts;
 public class AlertService : IAlertService
 {
     private readonly IApplicationDbContext _db;
+    private readonly IWhatsAppSender _whatsapp;
+    private readonly ILogger<AlertService> _logger;
 
-    public AlertService(IApplicationDbContext db) => _db = db;
+    public AlertService(IApplicationDbContext db, IWhatsAppSender whatsapp, ILogger<AlertService> logger)
+    {
+        _db = db;
+        _whatsapp = whatsapp;
+        _logger = logger;
+    }
 
     public async Task<IReadOnlyList<AlertDto>> GetAllAsync(CancellationToken cancellationToken = default)
         => await _db.Alertas
@@ -33,7 +42,46 @@ public class AlertService : IAlertService
         };
         _db.Alertas.Add(alerta);
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Envío automático: solo cuando la alerta está activa y el stock ya llegó (o bajó) del mínimo.
+        if (alerta.Estado == "active" && alerta.StockActual <= alerta.StockMinimo)
+        {
+            var sent = await TrySendWhatsappAsync(alerta, cancellationToken);
+            if (sent && !alerta.WhatsappEnviado)
+            {
+                alerta.WhatsappEnviado = true;
+                await _db.SaveChangesAsync(cancellationToken);
+            }
+        }
+
         return ToDto(alerta);
+    }
+
+    public async Task<bool> NotifyAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var alerta = await Find(id, cancellationToken);
+        var sent = await TrySendWhatsappAsync(alerta, cancellationToken);
+        if (sent && !alerta.WhatsappEnviado)
+        {
+            alerta.WhatsappEnviado = true;
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+        return sent;
+    }
+
+    /// <summary>Intenta enviar el WhatsApp de una alerta sin propagar errores.</summary>
+    private async Task<bool> TrySendWhatsappAsync(Alerta alerta, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _whatsapp.SendStockAlertAsync(
+                alerta.ProductoNombre, alerta.StockActual, alerta.StockMinimo, alerta.Unidad, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error enviando WhatsApp para la alerta {Id} ({Producto}).", alerta.IdAlerta, alerta.ProductoNombre);
+            return false;
+        }
     }
 
     public async Task<AlertDto> UpdateAsync(int id, AlertInput input, CancellationToken cancellationToken = default)

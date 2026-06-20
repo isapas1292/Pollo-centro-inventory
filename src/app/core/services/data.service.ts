@@ -17,6 +17,10 @@ export class DataService {
   private http = inject(HttpClient);
   private readonly api = 'http://localhost:3000/api';
 
+  // Las alertas comienzan a aparecer cuando el stock baja del mínimo × este factor
+  // (punto intermedio / "stock bajo"). Al llegar o bajar del mínimo pasan a "crítico".
+  private readonly WARNING_MULTIPLIER = 1.5;
+
   // --- Reactive stores ---
   private _products = signal<Product[]>([]);
   private _recipes = signal<Recipe[]>([]);
@@ -279,12 +283,20 @@ export class DataService {
   private checkStockAlert(product: Product): void {
     const existing = this._alerts().find(a => a.productId === product.id && a.status === 'active');
 
-    if (product.currentStock <= product.minStock) {
+    const warningThreshold = product.minStock * this.WARNING_MULTIPLIER;
+    const isCritical = product.currentStock <= product.minStock;
+    // Punto intermedio: el stock ya está bajo pero todavía no llega al mínimo.
+    const isWarning = !isCritical && product.currentStock <= warningThreshold;
+
+    if (isCritical || isWarning) {
       if (!existing) {
+        // Al crear una alerta crítica, el BACKEND envía el WhatsApp automáticamente
+        // (POST /alerts ya lo dispara). Aquí solo reflejamos el estado optimista.
+        const autoSend = isCritical;
         const alert: StockAlert = {
           id: this.generateId(), productId: product.id, productName: product.name,
           currentStock: product.currentStock, minStock: product.minStock,
-          unit: product.unit, status: 'active', whatsappSent: false, createdAt: new Date(),
+          unit: product.unit, status: 'active', whatsappSent: autoSend, createdAt: new Date(),
         };
         this._alerts.update(list => [alert, ...list]);
         if (this.isServerId(product.id)) {
@@ -295,13 +307,38 @@ export class DataService {
           }).then(() => this.reloadAlerts()).catch(e => console.error('createAlert', e));
         }
       } else {
+        // Si una alerta de "stock bajo" cruza al mínimo, se notifica automáticamente una vez.
+        const becameCritical = isCritical && !existing.whatsappSent;
         this._alerts.update(list =>
-          list.map(a => a.id === existing.id ? { ...a, currentStock: product.currentStock } : a)
+          list.map(a => a.id === existing.id
+            ? { ...a, currentStock: product.currentStock, whatsappSent: a.whatsappSent || becameCritical }
+            : a)
         );
+        if (becameCritical) this.notifyViaWhatsApp(existing);
       }
     } else if (existing) {
       this.resolveAlert(existing.id);
     }
+  }
+
+  /**
+   * Envía (o reenvía) la alerta por WhatsApp pidiéndoselo al backend, que la entrega
+   * vía WhatsApp Business Cloud API (Meta). Marca la alerta como notificada.
+   */
+  notifyViaWhatsApp(alert: StockAlert): void {
+    this._alerts.update(list => list.map(a => a.id === alert.id ? { ...a, whatsappSent: true } : a));
+    if (this.isServerId(alert.id)) {
+      this.post('alerts/' + alert.id + '/notify', {})
+        .then(() => this.reloadAlerts()).catch(e => console.error('notifyAlert', e));
+    }
+  }
+
+  /** Abre el cliente de correo con un pedido de reabastecimiento dirigido a un proveedor. */
+  emailSupplier(supplier: Supplier, subject: string, body: string): void {
+    if (typeof window === 'undefined') return;
+    const to = supplier.email ?? '';
+    const url = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(url, '_self');
   }
 
   resolveAlert(id: string): void {

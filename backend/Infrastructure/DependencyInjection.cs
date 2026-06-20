@@ -4,8 +4,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using PolloCentro.Api.Application.Abstractions.Notifications;
 using PolloCentro.Api.Application.Abstractions.Security;
 using PolloCentro.Api.Application.Common.Interfaces;
+using PolloCentro.Api.Infrastructure.Notifications;
 using PolloCentro.Api.Infrastructure.Persistence;
 using PolloCentro.Api.Infrastructure.Security;
 
@@ -37,6 +39,11 @@ public static class DependencyInjection
 
         services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
         services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
+
+        // --- Notificaciones por WhatsApp (Meta Cloud API) ---
+        services.AddOptions<WhatsAppOptions>()
+            .Bind(configuration.GetSection(WhatsAppOptions.SectionName));
+        services.AddHttpClient<IWhatsAppSender, MetaWhatsAppSender>();
 
         // --- Autenticación JWT ---
         var jwtSection = configuration.GetSection(JwtOptions.SectionName);
