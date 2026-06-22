@@ -41,9 +41,8 @@ La capa Application no depende de la implementación concreta de EF: usa la abst
 - SQL Server con la base de datos `PolloCentro` ya creada (tablas `Inventario`, `Proveedores`,
   `Recetas`, `RecetaIngredientes`, `Roles`, `Usuarios`).
 
-> **Enfoque database-first:** EF Core mapea las tablas existentes mediante configuraciones Fluent
-> (`Infrastructure/Persistence/Configurations`). **No** se usan migraciones, por lo que el esquema
-> de tu base de datos nunca se altera.
+> **Enfoque database-first:** EF Core mapea las tablas existentes mediante configuraciones Fluent.
+> El inicializador aplica de forma idempotente índices y restricciones de integridad requeridos.
 
 ## Configuración
 
@@ -53,7 +52,7 @@ La capa Application no depende de la implementación concreta de EF: usa la abst
 "ConnectionStrings": {
   "DefaultConnection": "Server=localhost,1433;Database=PolloCentro;Trusted_Connection=True;TrustServerCertificate=True;"
 },
-"Jwt": { "Secret": "...", "Issuer": "PolloCentro.Api", "Audience": "PolloCentro.Client", "ExpiryHours": 8 },
+"Jwt": { "Issuer": "PolloCentro.Api", "Audience": "PolloCentro.Client", "ExpiryHours": 8 },
 "Cors": { "AllowedOrigins": [ "http://localhost:4200" ] }
 ```
 
@@ -62,7 +61,7 @@ La capa Application no depende de la implementación concreta de EF: usa la abst
 - **JWT:** el secreto **no** se guarda en el repositorio (mín. 32 bytes, validado al arrancar).
   - Desarrollo: `dotnet user-secrets set "Jwt:Secret" "<clave-larga>"` (ya configurado).
   - Producción: variable de entorno `Jwt__Secret`.
-- **CORS:** si `AllowedOrigins` está vacío (como en Development), se permite cualquier origen.
+- **CORS:** solo se aceptan los orígenes declarados explícitamente; no se admite `*` con credenciales.
 
 ## Ejecutar
 
@@ -77,8 +76,8 @@ Puedes cambiar el puerto con la variable de entorno `PORT`.
 ## Base de datos: tablas y siembra de datos
 
 El esquema original solo tenía `Inventario`, `Proveedores`, `Recetas`, `RecetaIngredientes`,
-`Roles` y `Usuarios`. La aplicación crea (de forma **idempotente**, sin tocar las existentes) las
-tablas operacionales que faltaban: `Empleados`, `Turnos`, `HistorialPrecios`,
+`Roles` y `Usuarios`. La aplicación crea de forma **idempotente** las tablas operacionales que
+faltaban y conserva los registros existentes: `Empleados`, `Turnos`, `HistorialPrecios`,
 `RegistroPreparaciones`, `Alertas`, `Auditoria`, `Recepciones`, `CuentasContables`,
 `TransaccionesContables`, `Locales`.
 
@@ -86,18 +85,17 @@ La tabla **`Locales`** es el catálogo de negocios (datos de referencia, sembrad
 `Domain/Catalogs/Locales.cs`). Es la fuente de verdad para todo lo que dependa de la ubicación
 (horarios, contabilidad por local, etc.) y se expone vía `GET /api/locations`.
 
-- **Al arrancar** (`dotnet run`): se garantiza que las tablas existan. En *Development* (o si
-  `Database:SeedOnStartup=true`) además se siembran datos de demostración en las tablas vacías.
+- **Al arrancar** (`dotnet run`): se garantiza que las tablas, índices y restricciones existan.
+  Los datos de demostración solo se crean si `Database:SeedOnStartup=true`.
 - **Manual:** `dotnet run -- db-init` crea las tablas y siembra datos de ejemplo.
-- **Solo admin:** `dotnet run -- seed-admin` (equivalente al antiguo `seed-user.js`).
-
-**Usuarios de demostración:**
-
-| Correo                      | Contraseña  | Rol         |
-|-----------------------------|-------------|-------------|
-| `admin@pollocentro.com`     | `admin123`  | admin       |
-| `gerente@pollocentro.com`   | `manager123`| manager     |
-| `operador@pollocentro.com`  | `oper123`   | operations  |
+- **Solo admin:** configura primero `SeedAdmin:Password` mediante User Secrets y ejecuta
+  `dotnet run -- seed-admin`. No existen contraseñas predeterminadas en el código.
+- **Credenciales locales rotadas:** se guardan bajo `LocalAccounts:*Password` en User Secrets.
+  Para consultar solo la clave administrativa local:
+  `dotnet user-secrets list | Select-String '^LocalAccounts:AdminPassword ='`.
+- **Rotar nuevamente:** actualiza los tres secretos `LocalAccounts:AdminPassword`,
+  `LocalAccounts:ManagerPassword` y `LocalAccounts:OperationsPassword`, y ejecuta
+  `dotnet run -- rotate-local-passwords`.
 
 ## Endpoints
 

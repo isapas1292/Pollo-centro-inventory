@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using PolloCentro.Api.Application.Alerts;
 using PolloCentro.Api.Application.Common.Exceptions;
 using PolloCentro.Api.Application.Common.Interfaces;
 using PolloCentro.Api.Domain.Entities;
@@ -9,8 +10,13 @@ namespace PolloCentro.Api.Application.Dispatches;
 public class DispatchService : IDispatchService
 {
     private readonly IApplicationDbContext _db;
+    private readonly IAlertService _alerts;
 
-    public DispatchService(IApplicationDbContext db) => _db = db;
+    public DispatchService(IApplicationDbContext db, IAlertService alerts)
+    {
+        _db = db;
+        _alerts = alerts;
+    }
 
     public async Task<IReadOnlyList<DispatchDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
@@ -18,16 +24,25 @@ public class DispatchService : IDispatchService
             .AsNoTracking()
             .OrderByDescending(e => e.FechaEnvio)
             .ToListAsync(cancellationToken);
-        return envios.Select(ToDto).ToList();
+        var localIds = envios.Select(e => e.IdLocal).Distinct().ToList();
+        var locationCodes = await _db.Locales.AsNoTracking()
+            .Where(l => localIds.Contains(l.IdLocal))
+            .ToDictionaryAsync(l => l.IdLocal, l => l.Codigo, cancellationToken);
+        return envios.Select(e => ToDto(e, locationCodes.GetValueOrDefault(e.IdLocal))).ToList();
     }
 
     public async Task<DispatchDto> CreateAsync(DispatchInput input, CancellationToken cancellationToken = default)
     {
+        var local = await ResolveLocalAsync(input.LocationId, cancellationToken);
+        var items = input.Items ?? [];
+        if (items.Count == 0)
+            throw new ValidationException("El envío debe contener al menos un artículo.");
+
         var envio = new EnvioLocal
         {
-            IdLocal = int.TryParse(input.LocationId, out var lid) ? lid : 0,
-            LocalNombre = input.LocationName,
-            ItemsJson = JsonSerializer.Serialize(input.Items ?? new()),
+            IdLocal = local.IdLocal,
+            LocalNombre = local.Nombre,
+            ItemsJson = "[]",
             EnviadoPorId = input.DispatchedById,
             EnviadoPor = input.DispatchedBy ?? string.Empty,
             Nota = input.Note,
@@ -35,16 +50,22 @@ public class DispatchService : IDispatchService
         };
         _db.Envios.Add(envio);
 
-        var items = input.Items ?? new();
         decimal total = 0;
 
         // Precios de los ingredientes para valorar el envío.
         var prodIds = items.Where(i => i.Type == "ingrediente" && int.TryParse(i.RefId, out _))
                            .Select(i => int.Parse(i.RefId)).Distinct().ToList();
-        var precios = prodIds.Count == 0
-            ? new Dictionary<int, decimal>()
+        var products = prodIds.Count == 0
+            ? new Dictionary<int, Producto>()
             : await _db.Productos.Where(p => prodIds.Contains(p.IdProducto))
-                .ToDictionaryAsync(p => p.IdProducto, p => p.CostoUnitario, cancellationToken);
+                .ToDictionaryAsync(p => p.IdProducto, cancellationToken);
+
+        var recipeIds = items.Where(i => i.Type == "receta" && int.TryParse(i.RefId, out _))
+            .Select(i => int.Parse(i.RefId)).Distinct().ToList();
+        var recipes = recipeIds.Count == 0
+            ? new Dictionary<int, Receta>()
+            : await _db.Recetas.Where(r => recipeIds.Contains(r.IdReceta))
+                .ToDictionaryAsync(r => r.IdReceta, cancellationToken);
 
         foreach (var item in items)
         {
@@ -52,33 +73,60 @@ public class DispatchService : IDispatchService
             {
                 // Enviar una receta descuenta del stock de recetas YA preparadas (no los ingredientes,
                 // que se descontaron al prepararla) y se valora a su precio de venta.
-                var receta = await _db.Recetas.FirstOrDefaultAsync(r => r.IdReceta == rid, cancellationToken);
-                if (receta is not null)
-                {
-                    receta.StockPreparado = Math.Max(0, receta.StockPreparado - item.Quantity);
-                    total += item.Quantity * (receta.PrecioVenta ?? 0);
-                }
+                if (!recipes.TryGetValue(rid, out var receta))
+                    throw new NotFoundException("Receta", rid);
+                if (receta.StockPreparado < item.Quantity)
+                    throw new ValidationException($"Stock preparado insuficiente para {receta.NombreReceta}.");
+                receta.StockPreparado -= item.Quantity;
+                item.Name = receta.NombreReceta;
+                total += item.Quantity * (receta.PrecioVenta ?? 0);
             }
             else if (item.Type == "ingrediente" && int.TryParse(item.RefId, out var pid))
             {
-                // Los ingredientes sueltos se valoran a su costo unitario. (El stock del producto
-                // lo descuenta el frontend para disparar las alertas.)
-                if (precios.TryGetValue(pid, out var costo)) total += item.Quantity * costo;
+                if (!products.TryGetValue(pid, out var product))
+                    throw new NotFoundException("Producto", pid);
+                if (product.CantidadDisponible < item.Quantity)
+                    throw new ValidationException($"Stock insuficiente para {product.NombreProducto}.");
+                product.CantidadDisponible -= item.Quantity;
+                product.FechaRegistro = DateTime.Now;
+                item.Name = product.NombreProducto;
+                item.Unit = product.UnidadMedida;
+                total += item.Quantity * product.CostoUnitario;
             }
+            else
+                throw new ValidationException("El artículo del envío contiene una referencia inválida.");
         }
+
+        if (total <= 0)
+            throw new ValidationException("El envío no puede contabilizarse porque sus artículos no tienen valor.");
+        envio.ItemsJson = JsonSerializer.Serialize(items);
 
         await _db.SaveChangesAsync(cancellationToken);
 
+        foreach (var product in products.Values.Where(p => p.CantidadDisponible <= p.StockMinimo * 1.5m))
+        {
+            await _alerts.CreateAsync(new AlertInput
+            {
+                ProductId = product.IdProducto.ToString(),
+                ProductName = product.NombreProducto,
+                CurrentStock = product.CantidadDisponible,
+                MinStock = product.StockMinimo,
+                Unit = product.UnidadMedida,
+                Status = "active"
+            }, cancellationToken);
+        }
+
         // Cada local es un cliente del almacén: el envío se registra como un INGRESO contable
         // atribuido a ese local.
-        await RegisterIncomeTransactionAsync(envio, items, total, cancellationToken);
+        await RegisterIncomeTransactionAsync(envio, local.Codigo, items, total, cancellationToken);
 
-        return ToDto(envio);
+        return ToDto(envio, local.Codigo);
     }
 
     /// <summary>Crea la transacción contable de ingreso para un envío a un local.</summary>
     private async Task RegisterIncomeTransactionAsync(
-        EnvioLocal envio, List<DispatchItemDto> items, decimal total, CancellationToken cancellationToken)
+        EnvioLocal envio, string locationCode, List<DispatchItemDto> items, decimal total,
+        CancellationToken cancellationToken)
     {
         var cuenta = await EnsureSalesAccountAsync(cancellationToken);
 
@@ -90,7 +138,7 @@ public class DispatchService : IDispatchService
         {
             Fecha = envio.FechaEnvio,
             Tipo = "ingreso",
-            UbicacionId = envio.IdLocal.ToString(),
+            UbicacionId = locationCode,
             UbicacionNombre = envio.LocalNombre,
             IdCuenta = cuenta.IdCuenta,
             CuentaNombre = cuenta.Nombre,
@@ -117,6 +165,14 @@ public class DispatchService : IDispatchService
         return cuenta;
     }
 
+    private async Task<Local> ResolveLocalAsync(string value, CancellationToken cancellationToken)
+    {
+        var numericId = int.TryParse(value, out var parsed) ? parsed : 0;
+        return await _db.Locales.AsNoTracking()
+            .FirstOrDefaultAsync(l => l.Estado && (l.Codigo == value || l.IdLocal == numericId), cancellationToken)
+            ?? throw new ValidationException("El local destino no es válido.");
+    }
+
     public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
         var envio = await _db.Envios.FirstOrDefaultAsync(e => e.IdEnvio == id, cancellationToken)
@@ -133,7 +189,7 @@ public class DispatchService : IDispatchService
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    private static DispatchDto ToDto(EnvioLocal e)
+    private static DispatchDto ToDto(EnvioLocal e, string? locationCode)
     {
         List<DispatchItemDto> items;
         try
@@ -148,7 +204,7 @@ public class DispatchService : IDispatchService
         return new DispatchDto
         {
             Id = e.IdEnvio.ToString(),
-            LocationId = e.IdLocal.ToString(),
+            LocationId = locationCode ?? e.IdLocal.ToString(),
             LocationName = e.LocalNombre,
             Items = items,
             DispatchedById = e.EnviadoPorId,

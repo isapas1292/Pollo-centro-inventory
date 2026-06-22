@@ -40,5 +40,8 @@ public class TransaccionContableConfiguration : IEntityTypeConfiguration<Transac
         b.HasIndex(t => t.IdCuenta);
         b.HasIndex(t => t.Tipo);
         b.HasIndex(t => t.UbicacionId);
+        b.HasIndex(t => t.Referencia).IsUnique().HasFilter("[Referencia] IS NOT NULL");
+        b.HasIndex(t => new { t.UbicacionId, t.Fecha });
+        b.HasIndex(t => new { t.Fecha, t.Tipo });
     }
 }

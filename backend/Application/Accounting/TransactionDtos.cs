@@ -25,6 +25,7 @@ public class TransactionInput
     public DateTime? Date { get; set; }
 
     [Required(ErrorMessage = "El tipo (ingreso/gasto) es requerido")]
+    [RegularExpression("ingreso|gasto", ErrorMessage = "El tipo debe ser ingreso o gasto")]
     public string Type { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "El local es requerido")]
@@ -36,10 +37,14 @@ public class TransactionInput
     [Range(0.01, double.MaxValue, ErrorMessage = "El monto debe ser mayor que cero")]
     public decimal Amount { get; set; }
 
-    public string? Description { get; set; }
+    [StringLength(255)] public string? Description { get; set; }
+    [StringLength(30)]
     public string? PaymentMethod { get; set; }
+    [StringLength(60)]
     public string? Reference { get; set; }
+    [StringLength(150)]
     public string? Contact { get; set; }
+    [StringLength(150)]
     public string? RecordedBy { get; set; }
 }
 

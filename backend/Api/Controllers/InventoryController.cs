@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PolloCentro.Api.Application.Inventory;
 
@@ -5,6 +6,7 @@ namespace PolloCentro.Api.Api.Controllers;
 
 [ApiController]
 [Route("api/inventory")]
+[Authorize(Roles = "admin,manager,operations")]
 public class InventoryController : ControllerBase
 {
     private readonly IInventoryService _inventory;
@@ -30,6 +32,7 @@ public class InventoryController : ControllerBase
         => Ok(await _inventory.UpdateAsync(id, input, cancellationToken));
 
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
         await _inventory.DeleteAsync(id, cancellationToken);

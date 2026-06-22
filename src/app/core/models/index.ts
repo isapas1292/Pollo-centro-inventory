@@ -24,6 +24,8 @@ export interface Employee {
   role: string;
   phone?: string;
   active: boolean;
+  locationId?: string;    // local "de casa" del empleado
+  locationName?: string;
 }
 
 export interface ScheduleShift {
@@ -246,7 +248,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'alerts.view', 'alerts.configure',
     'audit.view',
     'suppliers.view', 'suppliers.create',
-    'orders.view', 'orders.create',
+    'orders.view', 'orders.create', 'orders.edit',
     'dispatch.view', 'dispatch.create',
   ],
   // Operations: inventario + preparar recetas (sin crear/editar) + envíos a locales.

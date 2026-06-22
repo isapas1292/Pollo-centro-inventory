@@ -1,4 +1,4 @@
-import { Component, computed, signal, effect } from '@angular/core';
+import { Component, computed, signal, effect, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -16,6 +16,7 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
 @Component({
   selector: 'app-inventory',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     FormsModule,
@@ -182,6 +183,9 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
               <span class="td td-updated">{{ formatDate(product.lastUpdated) }}</span>
               <span class="td td-actions">
                 @if (auth.hasPermission('inventory.edit')) {
+                  <button class="action-btn restock-btn" (click)="openRestockModal(product)" matTooltip="Introducir stock">
+                    <mat-icon>add_box</mat-icon>
+                  </button>
                   <button class="action-btn edit-btn" (click)="openEditModal(product)" matTooltip="Editar">
                     <mat-icon>edit</mat-icon>
                   </button>
@@ -232,8 +236,12 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
           </div>
           <div class="modal-body">
             <div class="form-group">
-              <label>Nombre</label>
-              <input type="text" class="form-input" [(ngModel)]="formName" placeholder="Nombre del producto" id="input-product-name">
+              <label>Nombre <span class="req">*</span></label>
+              <input type="text" class="form-input" [class.input-error]="formSubmitted && !formName.trim()"
+                     [(ngModel)]="formName" placeholder="Nombre del producto" id="input-product-name">
+              @if (formSubmitted && !formName.trim()) {
+                <span class="field-error">El nombre es obligatorio</span>
+              }
             </div>
             <div class="form-row">
               <div class="form-group">
@@ -283,9 +291,38 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
           </div>
           <div class="modal-footer">
             <button class="btn-cancel" (click)="closeModal()">Cancelar</button>
-            <button class="btn-save" (click)="saveProduct()" [disabled]="!isFormValid()" id="btn-save-product">
+            <button class="btn-save" (click)="saveProduct()" id="btn-save-product">
               <mat-icon>{{ editingProduct() ? 'save' : 'add' }}</mat-icon>
               {{ editingProduct() ? 'Guardar Cambios' : 'Crear Producto' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (showRestockModal()) {
+      <div class="modal-overlay" (click)="closeRestockModal()">
+        <div class="modal-content modal-restock" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h2><mat-icon>add_box</mat-icon> Introducir Stock</h2>
+            <button class="modal-close" (click)="closeRestockModal()"><mat-icon>close</mat-icon></button>
+          </div>
+          <div class="modal-body">
+            <div class="restock-product">{{ restockingProduct()?.name }}</div>
+            <div class="restock-summary">
+              <span>Stock actual <strong>{{ restockingProduct()?.currentStock }} {{ getUnitLabel(restockingProduct()?.unit || 'unidad') }}</strong></span>
+              <mat-icon>arrow_forward</mat-icon>
+              <span>Stock resultante <strong>{{ restockResult() }} {{ getUnitLabel(restockingProduct()?.unit || 'unidad') }}</strong></span>
+            </div>
+            <div class="form-group">
+              <label>Cantidad que llegó</label>
+              <input type="number" class="form-input" [(ngModel)]="restockQuantity" min="0.01" step="0.01" autofocus>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-cancel" (click)="closeRestockModal()">Cancelar</button>
+            <button class="btn-save" (click)="confirmRestock()" [disabled]="restockQuantity <= 0">
+              <mat-icon>inventory</mat-icon> Agregar al Inventario
             </button>
           </div>
         </div>
@@ -577,7 +614,7 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
 
     .table-header-row {
       display: grid;
-      grid-template-columns: 2.2fr 1.3fr 0.8fr 0.6fr 0.7fr 1.5fr 0.7fr 0.8fr 0.7fr;
+      grid-template-columns: 2.2fr 1.3fr 0.8fr 0.6fr 0.7fr 1.5fr 0.7fr 0.8fr 0.9fr;
       padding: 14px 20px;
       border-bottom: 1px solid var(--pc-border);
       background: rgba(0, 0, 0, 0.2);
@@ -593,7 +630,7 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
 
     .table-row {
       display: grid;
-      grid-template-columns: 2.2fr 1.3fr 0.8fr 0.6fr 0.7fr 1.5fr 0.7fr 0.8fr 0.7fr;
+      grid-template-columns: 2.2fr 1.3fr 0.8fr 0.6fr 0.7fr 1.5fr 0.7fr 0.8fr 0.9fr;
       padding: 14px 20px;
       border-bottom: 1px solid var(--pc-border);
       align-items: center;
@@ -721,6 +758,12 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
       color: #60A5FA;
     }
 
+    .restock-btn:hover {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: #10B981;
+      color: #34D399;
+    }
+
     .delete-btn:hover {
       background: rgba(229, 57, 53, 0.15);
       border-color: #E53935;
@@ -835,6 +878,12 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
     }
 
     .modal-delete { width: 440px; }
+    .modal-restock { max-width: 500px; }
+    .restock-product { font-size: 1.1rem; font-weight: 700; color: var(--pc-text-primary); }
+    .restock-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px; background: rgba(0,0,0,0.18); border: 1px solid var(--pc-border); border-radius: var(--pc-radius-md); }
+    .restock-summary span { display: flex; flex-direction: column; gap: 4px; color: var(--pc-text-muted); font-size: 0.78rem; }
+    .restock-summary strong { color: var(--pc-text-primary); font-size: 1rem; }
+    .restock-summary mat-icon { color: var(--pc-yellow); }
 
     .modal-header {
       display: flex;
@@ -908,6 +957,9 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
     }
 
     .form-input:focus { border-color: var(--pc-yellow); }
+    .form-input.input-error { border-color: #EF4444; background: rgba(239,68,68,0.06); }
+    .req { color: #F87171; }
+    .field-error { display: block; margin-top: 5px; font-size: 0.78rem; color: #F87171; }
 
     select.form-input {
       appearance: none;
@@ -1142,6 +1194,9 @@ export class InventoryComponent {
   // --- Modal state ---
   showModal = signal(false);
   editingProduct = signal<Product | null>(null);
+  showRestockModal = signal(false);
+  restockingProduct = signal<Product | null>(null);
+  restockQuantity = 0;
   showDeleteModal = signal(false);
   deletingProduct = signal<Product | null>(null);
 
@@ -1153,6 +1208,7 @@ export class InventoryComponent {
   formMinStock = 0;
   formPrice = 0;
   formSupplierId = '';
+  formSubmitted = false;
 
   openAddModal(): void {
     this.editingProduct.set(null);
@@ -1163,11 +1219,13 @@ export class InventoryComponent {
     this.formMinStock = 0;
     this.formPrice = 0;
     this.formSupplierId = '';
+    this.formSubmitted = false;
     this.showModal.set(true);
   }
 
   openEditModal(product: Product): void {
     this.editingProduct.set(product);
+    this.formSubmitted = false;
     this.formName = product.name;
     this.formCategory = product.category;
     this.formUnit = product.unit;
@@ -1183,11 +1241,36 @@ export class InventoryComponent {
     this.editingProduct.set(null);
   }
 
+  openRestockModal(product: Product): void {
+    this.restockingProduct.set(product);
+    this.restockQuantity = 0;
+    this.showRestockModal.set(true);
+  }
+
+  closeRestockModal(): void {
+    this.showRestockModal.set(false);
+    this.restockingProduct.set(null);
+    this.restockQuantity = 0;
+  }
+
+  restockResult(): number {
+    return (this.restockingProduct()?.currentStock ?? 0) + Math.max(0, Number(this.restockQuantity) || 0);
+  }
+
+  confirmRestock(): void {
+    const product = this.restockingProduct();
+    const quantity = Number(this.restockQuantity);
+    if (!product || quantity <= 0) return;
+    this.dataService.restockProduct(product.id, quantity);
+    this.closeRestockModal();
+  }
+
   isFormValid(): boolean {
     return this.formName.trim().length > 0 && this.formStock >= 0 && this.formMinStock >= 0 && this.formPrice >= 0;
   }
 
   saveProduct(): void {
+    this.formSubmitted = true;
     if (!this.isFormValid()) return;
     
     const supplier = this.dataService.suppliers().find(s => s.id === this.formSupplierId);

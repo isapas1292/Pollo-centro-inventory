@@ -40,12 +40,12 @@ public class SupplierService : ISupplierService
     {
         var proveedor = new Proveedor
         {
-            NombreProveedor = input.Name,
-            Direccion = input.ContactName,
-            Telefono = input.Phone,
-            Correo = input.Email,
+            NombreProveedor = input.Name.Trim(),
+            Direccion = Normalize(input.ContactName),
+            Telefono = Normalize(input.Phone),
+            Correo = Normalize(input.Email)?.ToLowerInvariant(),
             Estado = input.Active ?? true,
-            RNC = input.Notes
+            RNC = Normalize(input.Notes)
         };
 
         _db.Proveedores.Add(proveedor);
@@ -59,12 +59,12 @@ public class SupplierService : ISupplierService
         var proveedor = await _db.Proveedores.FirstOrDefaultAsync(p => p.IdProveedor == id, cancellationToken)
             ?? throw new NotFoundException("Proveedor", id);
 
-        proveedor.NombreProveedor = input.Name;
-        proveedor.Direccion = input.ContactName;
-        proveedor.Telefono = input.Phone;
-        proveedor.Correo = input.Email;
-        proveedor.Estado = input.Active;
-        proveedor.RNC = input.Notes;
+        proveedor.NombreProveedor = input.Name.Trim();
+        proveedor.Direccion = Normalize(input.ContactName);
+        proveedor.Telefono = Normalize(input.Phone);
+        proveedor.Correo = Normalize(input.Email)?.ToLowerInvariant();
+        proveedor.Estado = input.Active ?? proveedor.Estado;
+        proveedor.RNC = Normalize(input.Notes);
 
         await _db.SaveChangesAsync(cancellationToken);
         return ToDto(proveedor);
@@ -75,7 +75,14 @@ public class SupplierService : ISupplierService
         var proveedor = await _db.Proveedores.FirstOrDefaultAsync(p => p.IdProveedor == id, cancellationToken)
             ?? throw new NotFoundException("Proveedor", id);
 
+        if (await _db.Productos.AnyAsync(p => p.IdProveedor == id, cancellationToken)
+            || await _db.Recepciones.AnyAsync(r => r.IdProveedor == id, cancellationToken))
+            throw new ValidationException("El proveedor tiene productos o pedidos asociados y no puede eliminarse.");
+
         _db.Proveedores.Remove(proveedor);
         await _db.SaveChangesAsync(cancellationToken);
     }
+
+    private static string? Normalize(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

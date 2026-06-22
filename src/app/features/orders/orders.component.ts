@@ -2,7 +2,9 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../../core/services/data.service';
-import { OrderReception, Supplier, Product } from '../../core/models';
+import { NotificationService } from '../../core/services/notification.service';
+import { ConfirmService } from '../../core/services/confirm.service';
+import { OrderReception } from '../../core/models';
 import { MatIconModule } from '@angular/material/icon';
 
 @Component({
@@ -653,6 +655,8 @@ import { MatIconModule } from '@angular/material/icon';
 })
 export class OrdersComponent {
   dataService = inject(DataService);
+  private notify = inject(NotificationService);
+  private confirm = inject(ConfirmService);
 
   searchTerm = signal('');
   statusFilter = signal('all');
@@ -730,7 +734,7 @@ export class OrdersComponent {
     return !!(this.formData.supplierId && this.formData.productId && this.formData.quantity && this.formData.price);
   }
 
-  saveOrder() {
+  async saveOrder() {
     if (!this.isFormValid()) return;
 
     const supplier = this.dataService.suppliers().find(s => s.id === this.formData.supplierId);
@@ -752,31 +756,24 @@ export class OrdersComponent {
 
     const createdOrder = this.dataService.addOrderReception(orderToSave);
     this.closeForm();
-    
-    // Preguntar si quiere enviar correo inmediatamente
-    if (confirm('Pedido creado exitosamente. ¿Deseas enviar el correo al proveedor ahora?')) {
+    this.notify.success('Pedido registrado correctamente.');
+
+    // Preguntar si quiere enviar el correo inmediatamente
+    if (await this.confirm.ask('¿Deseas enviar el correo al proveedor ahora?', { confirmText: 'Enviar correo', danger: false })) {
       this.sendEmail(createdOrder);
     }
   }
 
-  markAsReceived(order: OrderReception) {
-    if (confirm(`¿Marcar la llegada de ${order.quantity}x ${order.productName}? Esto actualizará el inventario.`)) {
+  async markAsReceived(order: OrderReception) {
+    if (await this.confirm.ask(`¿Marcar la llegada de ${order.quantity}x ${order.productName}? Esto actualizará el inventario.`, { confirmText: 'Marcar recibido', danger: false })) {
       this.dataService.updateOrderReception(order.id, { status: 'completed' });
-      // En el DataService podríamos agregar lógica para actualizar el inventario cuando pasa a completed,
-      // O lo hacemos directamente aquí:
-      const product = this.dataService.products().find(p => p.id === order.productId);
-      if (product) {
-        this.dataService.updateProduct(product.id, {
-          currentStock: product.currentStock + order.quantity
-        });
-      }
     }
   }
 
   sendEmail(order: OrderReception) {
     const supplier = this.dataService.suppliers().find(s => s.id === order.supplierId);
     if (!supplier || !supplier.email) {
-      alert('El proveedor no tiene un correo electrónico configurado.');
+      this.notify.error('El proveedor no tiene un correo electrónico configurado.');
       return;
     }
 

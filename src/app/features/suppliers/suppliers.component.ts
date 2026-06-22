@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../../core/services/data.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 import { Supplier } from '../../core/models';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -558,6 +559,7 @@ import { MatIconModule } from '@angular/material/icon';
 })
 export class SuppliersComponent {
   private dataService = inject(DataService);
+  private confirm = inject(ConfirmService);
 
   searchTerm = signal('');
   showForm = signal(false);
@@ -620,8 +622,8 @@ export class SuppliersComponent {
     this.closeForm();
   }
 
-  deleteSupplier(supplier: Supplier) {
-    if (confirm(`¿Estás seguro de que deseas eliminar el proveedor "${supplier.name}"?`)) {
+  async deleteSupplier(supplier: Supplier) {
+    if (await this.confirm.ask(`¿Eliminar el proveedor "${supplier.name}"?`, { confirmText: 'Eliminar' })) {
       this.dataService.deleteSupplier(supplier.id);
     }
   }

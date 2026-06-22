@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace PolloCentro.Api.Application.Prices;
 
 public class PriceRecordDto
@@ -13,10 +15,15 @@ public class PriceRecordDto
 
 public class PriceRecordInput
 {
+    [Required]
     public string ProductId { get; set; } = string.Empty;
+    [StringLength(150)]
     public string? ProductName { get; set; }
+    [Range(0, 1_000_000_000)]
     public decimal Price { get; set; }
+    [StringLength(150)]
     public string? Supplier { get; set; }
+    [StringLength(150)]
     public string? RecordedBy { get; set; }
 }
 

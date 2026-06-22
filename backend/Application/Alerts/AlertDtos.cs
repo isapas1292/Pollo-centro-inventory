@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace PolloCentro.Api.Application.Alerts;
 
 public class AlertDto
@@ -16,11 +18,17 @@ public class AlertDto
 
 public class AlertInput
 {
+    [Required]
     public string ProductId { get; set; } = string.Empty;
+    [StringLength(150)]
     public string ProductName { get; set; } = string.Empty;
+    [Range(0, 1_000_000_000)]
     public decimal CurrentStock { get; set; }
+    [Range(0, 1_000_000_000)]
     public decimal MinStock { get; set; }
+    [StringLength(50)]
     public string? Unit { get; set; }
+    [RegularExpression("active|resolved")]
     public string? Status { get; set; }
     public bool? WhatsappSent { get; set; }
 }

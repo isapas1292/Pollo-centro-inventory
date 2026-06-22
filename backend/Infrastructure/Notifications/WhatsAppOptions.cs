@@ -26,8 +26,8 @@ public class WhatsAppOptions
     /// <summary>ID del número de teléfono de WhatsApp Business (SECRETO/identificador).</summary>
     public string PhoneNumberId { get; set; } = string.Empty;
 
-    /// <summary>Número destino en formato internacional sin '+', p. ej. 18098506034.</summary>
-    public string RecipientNumber { get; set; } = "18098506034";
+    /// <summary>Número destino en formato internacional sin '+'.</summary>
+    public string RecipientNumber { get; set; } = string.Empty;
 
     /// <summary>
     /// Nombre de la plantilla aprobada en Meta para mensajes proactivos.

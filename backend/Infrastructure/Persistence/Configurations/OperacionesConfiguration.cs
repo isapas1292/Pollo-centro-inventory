@@ -16,6 +16,7 @@ public class EmpleadoConfiguration : IEntityTypeConfiguration<Empleado>
         b.Property(e => e.Nombre).HasMaxLength(150).IsRequired();
         b.Property(e => e.Rol).HasMaxLength(100).IsRequired();
         b.Property(e => e.Telefono).HasMaxLength(20);
+        b.Property(e => e.LocalNombre).HasMaxLength(150);
     }
 }
 
@@ -77,6 +78,8 @@ public class AlertaConfiguration : IEntityTypeConfiguration<Alerta>
         b.Property(a => a.Estado).HasMaxLength(20).IsRequired();
         b.Property(a => a.FechaCreacion).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
         b.HasIndex(a => a.Estado);
+        b.HasIndex(a => a.IdProducto).IsUnique();
+        b.HasIndex(a => new { a.Estado, a.FechaCreacion });
     }
 }
 
@@ -107,6 +110,8 @@ public class RecepcionConfiguration : IEntityTypeConfiguration<Recepcion>
         b.Property(r => r.Total).HasPrecision(10, 2);
         b.Property(r => r.Estado).HasMaxLength(20).IsRequired();
         b.Property(r => r.FechaRecepcion).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
+        b.HasIndex(r => r.FechaRecepcion);
+        b.HasIndex(r => new { r.Estado, r.IdProducto });
     }
 }
 
@@ -123,5 +128,6 @@ public class EnvioLocalConfiguration : IEntityTypeConfiguration<EnvioLocal>
         b.Property(e => e.Nota).HasMaxLength(500);
         b.Property(e => e.FechaEnvio).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
         b.HasIndex(e => e.FechaEnvio);
+        b.HasIndex(e => e.IdLocal);
     }
 }

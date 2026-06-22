@@ -21,26 +21,48 @@ public class AlertService : IAlertService
     }
 
     public async Task<IReadOnlyList<AlertDto>> GetAllAsync(CancellationToken cancellationToken = default)
-        => await _db.Alertas
+    {
+        // Reconciliación de pedidos creados antes de este flujo: si hay una orden
+        // pendiente, su alerta debe mostrarse como pedido pendiente.
+        return await _db.Alertas
             .AsNoTracking()
             .OrderByDescending(a => a.FechaCreacion)
             .Select(a => ToDto(a))
             .ToListAsync(cancellationToken);
+    }
 
     public async Task<AlertDto> CreateAsync(AlertInput input, CancellationToken cancellationToken = default)
     {
-        var alerta = new Alerta
+        if (!int.TryParse(input.ProductId, out var productId) || productId <= 0)
+            throw new ValidationException("El producto de la alerta no es válido.");
+
+        var product = await _db.Productos.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.IdProducto == productId, cancellationToken)
+            ?? throw new NotFoundException("Producto", productId);
+
+        var alerta = await _db.Alertas
+            .FirstOrDefaultAsync(a => a.IdProducto == productId, cancellationToken);
+        var isNew = alerta is null;
+        if (alerta is null)
         {
-            IdProducto = int.TryParse(input.ProductId, out var pid) ? pid : 0,
-            ProductoNombre = input.ProductName,
-            StockActual = input.CurrentStock,
-            StockMinimo = input.MinStock,
-            Unidad = input.Unit,
-            Estado = string.IsNullOrEmpty(input.Status) ? "active" : input.Status,
-            WhatsappEnviado = input.WhatsappSent ?? false,
-            FechaCreacion = DateTime.Now
-        };
-        _db.Alertas.Add(alerta);
+            alerta = new Alerta { IdProducto = productId, FechaCreacion = DateTime.Now };
+            _db.Alertas.Add(alerta);
+        }
+
+        alerta.ProductoNombre = product.NombreProducto;
+        alerta.StockActual = input.CurrentStock;
+        alerta.StockMinimo = input.MinStock;
+        alerta.Unidad = string.IsNullOrWhiteSpace(input.Unit) ? product.UnidadMedida : input.Unit.Trim();
+        var hasPendingOrder = await _db.Recepciones.AsNoTracking()
+            .AnyAsync(r => r.IdProducto == productId && r.Estado == "pending", cancellationToken);
+        alerta.Estado = hasPendingOrder
+            ? "resolved"
+            : string.IsNullOrWhiteSpace(input.Status) ? "active" : input.Status;
+        alerta.FechaResolucion = alerta.Estado == "resolved" ? DateTime.Now : null;
+        if (input.WhatsappSent.HasValue)
+            alerta.WhatsappEnviado = input.WhatsappSent.Value;
+        else if (isNew)
+            alerta.WhatsappEnviado = false;
         await _db.SaveChangesAsync(cancellationToken);
 
         // Envío automático: solo cuando la alerta está activa y el stock ya llegó (o bajó) del mínimo.

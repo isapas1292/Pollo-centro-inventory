@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PolloCentro.Api.Application.Dispatches;
 
@@ -6,6 +7,7 @@ namespace PolloCentro.Api.Api.Controllers;
 /// <summary>Envíos de ingredientes/recetas a locales (tabla Envios).</summary>
 [ApiController]
 [Route("api/dispatches")]
+[Authorize(Roles = "admin,manager,operations")]
 public class DispatchesController : ControllerBase
 {
     private readonly IDispatchService _dispatches;
@@ -25,6 +27,7 @@ public class DispatchesController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
         await _dispatches.DeleteAsync(id, cancellationToken);

@@ -21,7 +21,9 @@ public class EmployeeService : IEmployeeService
                 Name = e.Nombre,
                 Role = e.Rol,
                 Phone = e.Telefono,
-                Active = e.Estado
+                Active = e.Estado,
+                LocationId = e.IdLocal == null ? null : e.IdLocal.ToString(),
+                LocationName = e.LocalNombre
             })
             .ToListAsync(cancellationToken);
 
@@ -32,7 +34,9 @@ public class EmployeeService : IEmployeeService
             Nombre = input.Name,
             Rol = input.Role,
             Telefono = input.Phone,
-            Estado = input.Active
+            Estado = input.Active,
+            IdLocal = int.TryParse(input.LocationId, out var lid) ? lid : null,
+            LocalNombre = input.LocationName
         };
         _db.Empleados.Add(empleado);
         await _db.SaveChangesAsync(cancellationToken);
@@ -48,6 +52,8 @@ public class EmployeeService : IEmployeeService
         empleado.Rol = input.Role;
         empleado.Telefono = input.Phone;
         empleado.Estado = input.Active;
+        empleado.IdLocal = int.TryParse(input.LocationId, out var lid) ? lid : null;
+        empleado.LocalNombre = input.LocationName;
 
         await _db.SaveChangesAsync(cancellationToken);
         return ToDto(empleado);
@@ -71,6 +77,8 @@ public class EmployeeService : IEmployeeService
         Name = e.Nombre,
         Role = e.Rol,
         Phone = e.Telefono,
+        LocationId = e.IdLocal?.ToString(),
+        LocationName = e.LocalNombre,
         Active = e.Estado
     };
 }

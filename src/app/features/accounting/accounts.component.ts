@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { AccountingService } from '../../core/services/accounting.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 import { Account, AccountType, ACCOUNT_TYPES } from '../../core/models';
 
 @Component({
@@ -142,6 +143,7 @@ import { Account, AccountType, ACCOUNT_TYPES } from '../../core/models';
 })
 export class AccountsComponent {
   private accounting = inject(AccountingService);
+  private confirm = inject(ConfirmService);
 
   accounts = this.accounting.accounts;
   accountTypes = ACCOUNT_TYPES;
@@ -186,7 +188,7 @@ export class AccountsComponent {
   }
 
   async remove(a: Account) {
-    if (confirm(`¿Eliminar la cuenta "${a.name}"?`)) {
+    if (await this.confirm.ask(`¿Eliminar la cuenta "${a.name}"?`, { confirmText: 'Eliminar' })) {
       await this.accounting.deleteAccount(a.id);
     }
   }

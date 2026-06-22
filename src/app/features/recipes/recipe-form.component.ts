@@ -1,4 +1,4 @@
-import { Component, computed, signal, OnInit } from '@angular/core';
+import { Component, computed, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
@@ -11,6 +11,7 @@ import { Product, RecipeIngredient } from '../../core/models';
 @Component({
   selector: 'app-recipe-form',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule, RouterModule, MatIconModule, MatButtonModule],
   template: `
     <div class="form-container animate-fade-in-up">
@@ -91,16 +92,22 @@ import { Product, RecipeIngredient } from '../../core/models';
         <div class="summary-box">
           <div class="summary-row">
             <span>Costo de producción (ingredientes):</span>
-            <span class="total-cost">RD$ {{ estimatedCost().toFixed(2) }}</span>
+            <span class="total-cost">$ {{ estimatedCost().toFixed(2) }}</span>
           </div>
           <div class="summary-row">
             <span>Precio de venta al consumidor:</span>
-            <input type="number" min="0" step="0.01" class="price-input"
-                   [ngModel]="salePrice()" (ngModelChange)="salePrice.set(+$event || 0)" placeholder="0.00">
+            <div class="price-cell">
+              <button type="button" class="btn-suggest" (click)="suggestPrice()" [disabled]="estimatedCost() <= 0"
+                      title="Sugerir precio con 50% de ganancia">
+                <mat-icon>auto_awesome</mat-icon> Sugerir
+              </button>
+              <input type="number" min="0" step="0.01" class="price-input"
+                     [ngModel]="salePrice()" (ngModelChange)="salePrice.set(+$event || 0)" placeholder="0.00">
+            </div>
           </div>
           <div class="summary-row margin-row" [class.pos]="margin() >= 0" [class.neg]="margin() < 0">
             <span>Margen de ganancia:</span>
-            <span>RD$ {{ margin().toFixed(2) }} ({{ marginPct().toFixed(1) }}%)</span>
+            <span>$ {{ margin().toFixed(2) }} ({{ marginPct().toFixed(1) }}%)</span>
           </div>
         </div>
       </div>
@@ -190,6 +197,11 @@ import { Product, RecipeIngredient } from '../../core/models';
       font-family: var(--pc-font-heading); font-size: 1.1rem;
     }
     .price-input:focus { outline: none; border-color: var(--pc-yellow); }
+    .price-cell { display: flex; align-items: center; gap: 10px; }
+    .btn-suggest { display: inline-flex; align-items: center; gap: 4px; background: rgba(242,201,76,0.12); color: var(--pc-yellow); border: 1px solid rgba(242,201,76,0.3); border-radius: var(--pc-radius-sm); padding: 6px 10px; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+    .btn-suggest:hover:not(:disabled) { background: rgba(242,201,76,0.2); }
+    .btn-suggest:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-suggest mat-icon { font-size: 15px; width: 15px; height: 15px; }
     .margin-row { border-top: 1px dashed rgba(255,255,255,0.15); padding-top: 12px; font-size: 1.1rem; }
     .margin-row.pos span:last-child { color: #34D399; font-family: var(--pc-font-heading); }
     .margin-row.neg span:last-child { color: #F87171; font-family: var(--pc-font-heading); }
@@ -344,6 +356,13 @@ export class RecipeFormComponent implements OnInit {
 
   removeIngredient(index: number) {
     this.ingredients.update(list => list.filter((_, i) => i !== index));
+  }
+
+  /** Sugiere el precio de venta con 50% de ganancia sobre el costo, redondeado. */
+  suggestPrice() {
+    const cost = this.estimatedCost();
+    if (cost <= 0) return;
+    this.salePrice.set(Math.round(cost * 1.5 * 100) / 100);
   }
 
   getProductUnit(productId: string): string {

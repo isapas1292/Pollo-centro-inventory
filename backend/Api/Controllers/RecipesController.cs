@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PolloCentro.Api.Application.Recipes;
 
@@ -5,6 +6,7 @@ namespace PolloCentro.Api.Api.Controllers;
 
 [ApiController]
 [Route("api/recipes")]
+[Authorize(Roles = "admin,operations")]
 public class RecipesController : ControllerBase
 {
     private readonly IRecipeService _recipes;
@@ -20,6 +22,7 @@ public class RecipesController : ControllerBase
         => Ok(await _recipes.GetLogsAsync(cancellationToken));
 
     [HttpPost]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult<RecipeDto>> Create(
         [FromBody] RecipeInput input, CancellationToken cancellationToken)
     {
@@ -28,11 +31,13 @@ public class RecipesController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult<RecipeDto>> Update(
         int id, [FromBody] RecipeInput input, CancellationToken cancellationToken)
         => Ok(await _recipes.UpdateAsync(id, input, cancellationToken));
 
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
         await _recipes.DeleteAsync(id, cancellationToken);

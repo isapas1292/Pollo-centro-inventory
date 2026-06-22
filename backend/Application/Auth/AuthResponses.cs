@@ -15,6 +15,6 @@ public class AppUserDto
 /// <summary>Respuesta de un login exitoso: token JWT + datos del usuario.</summary>
 public class LoginResponse
 {
-    [JsonPropertyName("token")] public string Token { get; set; } = string.Empty;
+    [JsonIgnore] public string Token { get; set; } = string.Empty;
     [JsonPropertyName("user")] public AppUserDto User { get; set; } = new();
 }

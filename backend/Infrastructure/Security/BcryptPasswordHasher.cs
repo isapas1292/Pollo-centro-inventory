@@ -5,7 +5,7 @@ namespace PolloCentro.Api.Infrastructure.Security;
 /// <summary>Implementación de hashing de contraseñas con BCrypt (compatible con los hashes existentes).</summary>
 public class BcryptPasswordHasher : IPasswordHasher
 {
-    private const int WorkFactor = 10;
+    private const int WorkFactor = 12;
 
     public string Hash(string password) => BCrypt.Net.BCrypt.HashPassword(password, WorkFactor);
 

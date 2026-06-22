@@ -9,18 +9,29 @@ public class EmployeeDto
     public string Role { get; set; } = string.Empty;
     public string? Phone { get; set; }
     public bool Active { get; set; }
+    public string? LocationId { get; set; }
+    public string? LocationName { get; set; }
 }
 
 public class EmployeeInput
 {
     [Required(ErrorMessage = "El nombre es requerido")]
+    [StringLength(150)]
     public string Name { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "El puesto es requerido")]
+    [StringLength(100)]
     public string Role { get; set; } = string.Empty;
 
+    [StringLength(20)]
     public string? Phone { get; set; }
+
     public bool Active { get; set; } = true;
+
+    public string? LocationId { get; set; }
+
+    [StringLength(150)]
+    public string? LocationName { get; set; }
 }
 
 public interface IEmployeeService

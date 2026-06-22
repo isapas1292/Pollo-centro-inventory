@@ -2,6 +2,8 @@ import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { Product, Recipe, RecipeLog, PriceRecord, StockAlert, AppUser, AuditLog, Employee, ScheduleShift, Location, Supplier, OrderReception, Dispatch, DispatchItem } from '../models';
+import { AuthService } from './auth.service';
+import { environment } from '../../../environments/environment';
 
 /**
  * DataService — Capa de datos reactiva respaldada por la API .NET (PolloCentro.Api).
@@ -15,11 +17,11 @@ import { Product, Recipe, RecipeLog, PriceRecord, StockAlert, AppUser, AuditLog,
 export class DataService {
 
   private http = inject(HttpClient);
-  private readonly api = 'http://localhost:3000/api';
+  private auth = inject(AuthService);
+  private readonly api = environment.apiUrl;
 
   // Las alertas comienzan a aparecer cuando el stock baja del mínimo × este factor
   // (punto intermedio / "stock bajo"). Al llegar o bajar del mínimo pasan a "crítico".
-  private readonly WARNING_MULTIPLIER = 1.5;
 
   // --- Reactive stores ---
   private _products = signal<Product[]>([]);
@@ -51,6 +53,10 @@ export class DataService {
   readonly dispatches = this._dispatches.asReadonly();
   readonly locations = this._locations.asReadonly();
 
+  // Indicador de carga inicial (para spinners/barras de progreso globales).
+  private _loading = signal(true);
+  readonly loading = this._loading.asReadonly();
+
   // --- Computed signals ---
   readonly activeAlerts = computed(() => this._alerts().filter(a => a.status === 'active'));
   readonly totalProducts = computed(() => this._products().length);
@@ -65,20 +71,19 @@ export class DataService {
   // ==========================================
   // CARGA INICIAL
   // ==========================================
-  private loadAll(): void {
-    this.reloadProducts();
-    this.reloadRecipes();
-    this.reloadRecipeLogs();
-    this.reloadPrices();
-    this.reloadAlerts();
-    this.reloadUsers();
-    this.reloadAudit();
-    this.reloadEmployees();
-    this.reloadSchedules();
-    this.fetchSuppliers();
-    this.reloadOrders();
-    this.reloadDispatches();
-    this.reloadLocations();
+  private async loadAll(): Promise<void> {
+    this._loading.set(true);
+    // Colecciones restringidas: solo se piden si el rol puede verlas (evita 403 inútiles).
+    const role = this.auth.userRole();
+    const tasks: Promise<unknown>[] = [
+      this.reloadProducts(), this.reloadRecipes(), this.reloadRecipeLogs(),
+      this.reloadPrices(), this.reloadAlerts(), this.reloadEmployees(),
+      this.reloadSchedules(), this.fetchSuppliers(), this.reloadOrders(),
+      this.reloadDispatches(), this.reloadLocations(),
+    ];
+    if (role === 'admin') tasks.push(this.reloadUsers());
+    if (role === 'admin' || role === 'manager') tasks.push(this.reloadAudit());
+    try { await Promise.all(tasks); } finally { this._loading.set(false); }
   }
 
   private async getList<T>(path: string): Promise<T[]> {
@@ -130,6 +135,7 @@ export class DataService {
     this.post<Product>('inventory', payload)
       .then(created => {
         this.reloadProducts();
+        this.reloadAlerts();
         // Registra el precio inicial con el id real del servidor.
         return this.post('prices', {
           productId: created.id, productName: created.name,
@@ -138,7 +144,6 @@ export class DataService {
       })
       .catch(e => console.error('addProduct', e));
 
-    this.checkStockAlert(newProduct);
     return newProduct;
   }
 
@@ -153,22 +158,32 @@ export class DataService {
     if (updates.currentPrice !== undefined) {
       this.addPriceRecord({ productId: id, productName: product.name, price: updates.currentPrice, recordedBy: 'system' });
     }
-    this.checkStockAlert(product);
-
     if (this.isServerId(id)) {
       const payload = {
         name: product.name, category: product.category, unit: product.unit,
         currentStock: product.currentStock, minStock: product.minStock,
         currentPrice: product.currentPrice, supplierId: product.supplierId,
       };
-      this.put('inventory/' + id, payload).then(() => this.reloadProducts()).catch(e => console.error('updateProduct', e));
+      this.put<Product>('inventory/' + id, payload)
+        .then(updated => {
+          this._products.update(list => list.map(p => p.id === id ? { ...p, ...updated } : p));
+          this.reloadAlerts();
+        })
+        .catch(e => console.error('updateProduct', e));
     }
+  }
+
+  restockProduct(id: string, quantity: number): void {
+    const product = this.getProduct(id);
+    if (!product || quantity <= 0) return;
+    this.updateProduct(id, { currentStock: product.currentStock + quantity });
   }
 
   deleteProduct(id: string): void {
     this._products.update(list => list.filter(p => p.id !== id));
     if (this.isServerId(id)) {
-      this.del('inventory/' + id).then(() => this.reloadProducts()).catch(e => console.error('deleteProduct', e));
+      // Ya se quitó del signal; no hace falta refetch de toda la lista.
+      this.del('inventory/' + id).catch(e => console.error('deleteProduct', e));
     }
   }
 
@@ -183,11 +198,13 @@ export class DataService {
     const newRecipe: Recipe = { ...recipe, id: this.generateId(), createdAt: new Date() };
     this._recipes.update(list => [...list, newRecipe]);
 
+    // Reemplaza el temporal con la receta del servidor (id real + costo recalculado).
     this.post<Recipe>('recipes', {
       name: recipe.name, description: recipe.description,
       ingredients: recipe.ingredients, estimatedCost: recipe.estimatedCost,
       salePrice: recipe.salePrice, createdBy: recipe.createdBy,
-    }).then(() => this.reloadRecipes()).catch(e => console.error('addRecipe', e));
+    }).then(created => this._recipes.update(list => list.map(r => r.id === newRecipe.id ? created : r)))
+      .catch(e => console.error('addRecipe', e));
 
     return newRecipe;
   }
@@ -196,18 +213,19 @@ export class DataService {
     this._recipes.update(list => list.map(r => r.id === id ? { ...r, ...updates } : r));
     const recipe = this._recipes().find(r => r.id === id);
     if (recipe && this.isServerId(id)) {
-      this.put('recipes/' + id, {
+      this.put<Recipe>('recipes/' + id, {
         name: recipe.name, description: recipe.description,
         ingredients: recipe.ingredients, estimatedCost: recipe.estimatedCost,
         salePrice: recipe.salePrice, createdBy: recipe.createdBy,
-      }).then(() => this.reloadRecipes()).catch(e => console.error('updateRecipe', e));
+      }).then(updated => this._recipes.update(list => list.map(r => r.id === id ? updated : r)))
+        .catch(e => console.error('updateRecipe', e));
     }
   }
 
   deleteRecipe(id: string): void {
     this._recipes.update(list => list.filter(r => r.id !== id));
     if (this.isServerId(id)) {
-      this.del('recipes/' + id).then(() => this.reloadRecipes()).catch(e => console.error('deleteRecipe', e));
+      this.del('recipes/' + id).catch(e => console.error('deleteRecipe', e));
     }
   }
 
@@ -274,10 +292,11 @@ export class DataService {
     this._priceHistory.update(list => [newRecord, ...list]);
 
     if (this.isServerId(record.productId)) {
+      // El historial es solo de lectura; el registro optimista ya se muestra (sin refetch).
       this.post('prices', {
         productId: record.productId, productName: record.productName,
         price: record.price, supplier: record.supplier, recordedBy: record.recordedBy,
-      }).then(() => this.reloadPrices()).catch(e => console.error('addPriceRecord', e));
+      }).catch(e => console.error('addPriceRecord', e));
     }
   }
 
@@ -288,47 +307,6 @@ export class DataService {
   // ==========================================
   // ALERTS
   // ==========================================
-  private checkStockAlert(product: Product): void {
-    const existing = this._alerts().find(a => a.productId === product.id && a.status === 'active');
-
-    const warningThreshold = product.minStock * this.WARNING_MULTIPLIER;
-    const isCritical = product.currentStock <= product.minStock;
-    // Punto intermedio: el stock ya está bajo pero todavía no llega al mínimo.
-    const isWarning = !isCritical && product.currentStock <= warningThreshold;
-
-    if (isCritical || isWarning) {
-      if (!existing) {
-        // Al crear una alerta crítica, el BACKEND envía el WhatsApp automáticamente
-        // (POST /alerts ya lo dispara). Aquí solo reflejamos el estado optimista.
-        const autoSend = isCritical;
-        const alert: StockAlert = {
-          id: this.generateId(), productId: product.id, productName: product.name,
-          currentStock: product.currentStock, minStock: product.minStock,
-          unit: product.unit, status: 'active', whatsappSent: autoSend, createdAt: new Date(),
-        };
-        this._alerts.update(list => [alert, ...list]);
-        if (this.isServerId(product.id)) {
-          this.post('alerts', {
-            productId: product.id, productName: product.name,
-            currentStock: product.currentStock, minStock: product.minStock,
-            unit: product.unit, status: 'active',
-          }).then(() => this.reloadAlerts()).catch(e => console.error('createAlert', e));
-        }
-      } else {
-        // Si una alerta de "stock bajo" cruza al mínimo, se notifica automáticamente una vez.
-        const becameCritical = isCritical && !existing.whatsappSent;
-        this._alerts.update(list =>
-          list.map(a => a.id === existing.id
-            ? { ...a, currentStock: product.currentStock, whatsappSent: a.whatsappSent || becameCritical }
-            : a)
-        );
-        if (becameCritical) this.notifyViaWhatsApp(existing);
-      }
-    } else if (existing) {
-      this.resolveAlert(existing.id);
-    }
-  }
-
   /**
    * Envía (o reenvía) la alerta por WhatsApp pidiéndoselo al backend, que la entrega
    * vía WhatsApp Business Cloud API (Meta). Marca la alerta como notificada.
@@ -375,7 +353,8 @@ export class DataService {
     this.post<AppUser>('users', {
       email: user.email, displayName: user.displayName, role: user.role,
       phone: user.phone, active: user.active, password,
-    }).then(() => this.reloadUsers()).catch(e => console.error('addUser', e));
+    }).then(created => this._users.update(list => list.map(u => u.uid === newUser.uid ? created : u)))
+      .catch(e => console.error('addUser', e));
 
     return newUser;
   }
@@ -384,17 +363,18 @@ export class DataService {
     this._users.update(list => list.map(u => u.uid === uid ? { ...u, ...updates } : u));
     const user = this._users().find(u => u.uid === uid);
     if (user && this.isServerId(uid)) {
-      this.put('users/' + uid, {
+      this.put<AppUser>('users/' + uid, {
         email: user.email, displayName: user.displayName, role: user.role,
         phone: user.phone, active: user.active,
-      }).then(() => this.reloadUsers()).catch(e => console.error('updateUser', e));
+      }).then(updated => this._users.update(list => list.map(u => u.uid === uid ? { ...u, ...updated } : u)))
+        .catch(e => console.error('updateUser', e));
     }
   }
 
   deleteUser(uid: string): void {
     this._users.update(list => list.filter(u => u.uid !== uid));
     if (this.isServerId(uid)) {
-      this.del('users/' + uid).then(() => this.reloadUsers()).catch(e => console.error('deleteUser', e));
+      this.del('users/' + uid).catch(e => console.error('deleteUser', e));
     }
   }
 
@@ -416,7 +396,9 @@ export class DataService {
   addEmployee(employee: Omit<Employee, 'id'>): Employee {
     const newEmp = { ...employee, id: this.generateId() };
     this._employees.update(list => [...list, newEmp]);
-    this.post<Employee>('employees', employee).then(() => this.reloadEmployees()).catch(e => console.error('addEmployee', e));
+    this.post<Employee>('employees', employee)
+      .then(created => this._employees.update(list => list.map(e => e.id === newEmp.id ? created : e)))
+      .catch(e => console.error('addEmployee', e));
     return newEmp;
   }
 
@@ -424,8 +406,11 @@ export class DataService {
     this._employees.update(list => list.map(e => e.id === id ? { ...e, ...updates } : e));
     const emp = this._employees().find(e => e.id === id);
     if (emp && this.isServerId(id)) {
-      this.put('employees/' + id, { name: emp.name, role: emp.role, phone: emp.phone, active: emp.active })
-        .then(() => this.reloadEmployees()).catch(e => console.error('updateEmployee', e));
+      this.put<Employee>('employees/' + id, {
+        name: emp.name, role: emp.role, phone: emp.phone, active: emp.active,
+        locationId: emp.locationId, locationName: emp.locationName,
+      }).then(updated => this._employees.update(list => list.map(e => e.id === id ? { ...e, ...updated } : e)))
+        .catch(e => console.error('updateEmployee', e));
     }
   }
 
@@ -433,29 +418,48 @@ export class DataService {
     this._employees.update(list => list.filter(e => e.id !== id));
     this._schedules.update(list => list.filter(s => s.employeeId !== id));
     if (this.isServerId(id)) {
-      this.del('employees/' + id).then(() => { this.reloadEmployees(); this.reloadSchedules(); }).catch(e => console.error('deleteEmployee', e));
+      this.del('employees/' + id).catch(e => console.error('deleteEmployee', e));
     }
   }
 
   addShift(shift: Omit<ScheduleShift, 'id'>): ScheduleShift {
     const newShift = { ...shift, id: this.generateId() };
     this._schedules.update(list => [...list, newShift]);
-    this.post<ScheduleShift>('schedules', shift).then(() => this.reloadSchedules()).catch(e => console.error('addShift', e));
+    this.post<ScheduleShift>('schedules', shift)
+      .then(created => this._schedules.update(list => list.map(s => s.id === newShift.id ? created : s)))
+      .catch(e => console.error('addShift', e));
     return newShift;
+  }
+
+  /**
+   * Alta masiva de turnos en UNA sola petición (varios días o horario automático).
+   * Si se pasa replaceWeekKey, el backend borra primero los turnos de esa semana.
+   */
+  addShiftsBulk(shifts: Omit<ScheduleShift, 'id'>[], replaceWeekKey?: string): void {
+    const temp = shifts.map(s => ({ ...s, id: this.generateId() }));
+    this._schedules.update(list => {
+      const base = replaceWeekKey ? list.filter(s => s.weekKey !== replaceWeekKey) : list;
+      return [...base, ...temp];
+    });
+    this.post('schedules/bulk', { replaceWeekKey, shifts })
+      .then(() => this.reloadSchedules())
+      .catch(e => console.error('addShiftsBulk', e));
   }
 
   updateShift(id: string, updates: Partial<ScheduleShift>): void {
     this._schedules.update(list => list.map(s => s.id === id ? { ...s, ...updates } : s));
     const shift = this._schedules().find(s => s.id === id);
     if (shift && this.isServerId(id)) {
-      this.put('schedules/' + id, shift).then(() => this.reloadSchedules()).catch(e => console.error('updateShift', e));
+      this.put<ScheduleShift>('schedules/' + id, shift)
+        .then(updated => this._schedules.update(list => list.map(s => s.id === id ? updated : s)))
+        .catch(e => console.error('updateShift', e));
     }
   }
 
   deleteShift(id: string): void {
     this._schedules.update(list => list.filter(s => s.id !== id));
     if (this.isServerId(id)) {
-      this.del('schedules/' + id).then(() => this.reloadSchedules()).catch(e => console.error('deleteShift', e));
+      this.del('schedules/' + id).catch(e => console.error('deleteShift', e));
     }
   }
 
@@ -512,37 +516,58 @@ export class DataService {
   addOrderReception(order: Omit<OrderReception, 'id' | 'receivedAt'>): OrderReception {
     const newOrder: OrderReception = { ...order, id: this.generateId(), receivedAt: new Date() };
     this._orderReceptions.update(list => [newOrder, ...list]);
+    if (order.status === 'pending') {
+      this._alerts.update(list => list.map(a => a.productId === order.productId
+        ? { ...a, status: 'resolved' as const, resolvedAt: new Date() }
+        : a));
+    }
 
     this.post<OrderReception>('orders', {
       supplierId: order.supplierId, supplierName: order.supplierName,
       productId: order.productId, productName: order.productName,
       quantity: order.quantity, price: order.price, total: order.total,
       receivedBy: order.receivedBy, status: order.status,
-    }).then(() => {
-      this.reloadOrders();
-      if (order.status === 'completed') this.reloadProducts();
+    }).then(created => {
+      this._orderReceptions.update(list => list.map(o => o.id === newOrder.id ? created : o));
+      // Solo si la mercancía entró (completed) cambió el stock en el servidor → resincronizar.
+      if (order.status === 'completed') {
+        this._alerts.update(list => list.filter(a => a.productId !== order.productId));
+        this.reloadProducts(); this.reloadAlerts();
+      }
     }).catch(e => console.error('addOrderReception', e));
 
     return newOrder;
   }
 
   updateOrderReception(id: string, updates: Partial<OrderReception>): void {
+    const previous = this._orderReceptions().find(o => o.id === id);
     this._orderReceptions.update(list => list.map(o => o.id === id ? { ...o, ...updates } : o));
     const order = this._orderReceptions().find(o => o.id === id);
+    const justReceived = previous?.status !== 'completed' && order?.status === 'completed';
+    if (order && justReceived) {
+      this._products.update(list => list.map(p => p.id === order.productId
+        ? { ...p, currentStock: p.currentStock + order.quantity, lastUpdated: new Date() }
+        : p));
+      this._alerts.update(list => list.filter(a => a.productId !== order.productId));
+    }
     if (order && this.isServerId(id)) {
-      this.put('orders/' + id, {
+      this.put<OrderReception>('orders/' + id, {
         supplierId: order.supplierId, supplierName: order.supplierName,
         productId: order.productId, productName: order.productName,
         quantity: order.quantity, price: order.price, total: order.total,
         receivedBy: order.receivedBy, status: order.status,
-      }).then(() => this.reloadOrders()).catch(e => console.error('updateOrderReception', e));
+      }).then(updated => {
+        this._orderReceptions.update(list => list.map(o => o.id === id ? updated : o));
+        // Solo resincroniza inventario/alertas si la mercancía acaba de entrar.
+        if (justReceived) { this.reloadProducts(); this.reloadAlerts(); }
+      }).catch(e => console.error('updateOrderReception', e));
     }
   }
 
   deleteOrderReception(id: string): void {
     this._orderReceptions.update(list => list.filter(o => o.id !== id));
     if (this.isServerId(id)) {
-      this.del('orders/' + id).then(() => this.reloadOrders()).catch(e => console.error('deleteOrderReception', e));
+      this.del('orders/' + id).catch(e => console.error('deleteOrderReception', e));
     }
   }
 
@@ -559,15 +584,11 @@ export class DataService {
       dispatchedBy: dispatch.dispatchedBy, note: dispatch.note,
     }).then(() => {
       this.reloadDispatches();
+      this.reloadProducts();
+      this.reloadAlerts();
       // El backend descuenta el stock de recetas preparadas; refrescamos.
       if (dispatch.items.some(it => it.type === 'receta')) this.reloadRecipes();
     }).catch(e => console.error('addDispatch', e));
-
-    // Los INGREDIENTES sueltos enviados se descuentan del inventario aquí (vía
-    // updateProduct, que persiste y dispara alertas/WhatsApp si baja del mínimo).
-    // Las RECETAS no descuentan ingredientes (ya se descontaron al prepararlas);
-    // el backend baja su "stock preparado".
-    this.applyDispatchStock(dispatch.items);
 
     // Refleja de forma optimista la baja del stock preparado de las recetas enviadas.
     for (const it of dispatch.items) {
@@ -578,23 +599,6 @@ export class DataService {
     }
 
     return newDispatch;
-  }
-
-  /** Descuenta del inventario solo los ingredientes sueltos enviados. */
-  private applyDispatchStock(items: DispatchItem[]): void {
-    const deductions = new Map<string, number>();
-    for (const it of items) {
-      if (it.type === 'ingrediente') {
-        deductions.set(it.refId, (deductions.get(it.refId) ?? 0) + it.quantity);
-      }
-    }
-
-    for (const [productId, qty] of deductions) {
-      const product = this._products().find(p => p.id === productId);
-      if (product) {
-        this.updateProduct(productId, { currentStock: Math.max(0, product.currentStock - qty) });
-      }
-    }
   }
 
   deleteDispatch(id: string): void {

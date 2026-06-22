@@ -11,8 +11,11 @@ public class JwtOptions
     [Required, MinLength(32)]
     public string Secret { get; set; } = string.Empty;
 
-    public string? Issuer { get; set; }
-    public string? Audience { get; set; }
+    [Required, MinLength(3)]
+    public string Issuer { get; set; } = string.Empty;
+
+    [Required, MinLength(3)]
+    public string Audience { get; set; } = string.Empty;
 
     [Range(1, 168)]
     public int ExpiryHours { get; set; } = 8;

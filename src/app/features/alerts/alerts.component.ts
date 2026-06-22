@@ -1,4 +1,4 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -10,6 +10,7 @@ import { StockAlert, Supplier } from '../../core/models';
 @Component({
   selector: 'app-alerts',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatChipsModule],
   template: `
     <div class="page-container animate-fade-in-up">
@@ -26,7 +27,7 @@ import { StockAlert, Supplier } from '../../core/models';
             Activas ({{ activeCount() }})
           </button>
           <button class="pill pill-success" [class.active]="filter() === 'resolved'" (click)="filter.set('resolved')">
-            Resueltas
+            Pedidos pendientes
           </button>
         </div>
       </div>
@@ -47,7 +48,7 @@ import { StockAlert, Supplier } from '../../core/models';
                 <mat-icon [class.text-red]="alert.status === 'active' && isCritical(alert)"
                           [class.text-yellow]="alert.status === 'active' && !isCritical(alert)"
                           [class.text-green]="alert.status === 'resolved'">
-                  {{ alert.status === 'active' ? (isCritical(alert) ? 'error_outline' : 'warning_amber') : 'check_circle' }}
+                  {{ alert.status === 'active' ? (isCritical(alert) ? 'error_outline' : 'warning_amber') : 'local_shipping' }}
                 </mat-icon>
                 <h3>{{ alert.productName }}</h3>
               </div>
@@ -55,7 +56,7 @@ import { StockAlert, Supplier } from '../../core/models';
                     [class.badge-active]="alert.status === 'active' && isCritical(alert)"
                     [class.badge-warning]="alert.status === 'active' && !isCritical(alert)"
                     [class.badge-resolved]="alert.status === 'resolved'">
-                {{ alert.status === 'active' ? (isCritical(alert) ? 'Crítico' : 'Stock Bajo') : 'Resuelto' }}
+                {{ alert.status === 'active' ? (isCritical(alert) ? 'Crítico' : 'Stock Bajo') : 'Pedido pendiente' }}
               </span>
             </div>
 
@@ -89,12 +90,9 @@ import { StockAlert, Supplier } from '../../core/models';
                 <button class="btn-whatsapp" [class.opacity-50]="alert.whatsappSent && isCritical(alert)" (click)="notifySupplier(alert)">
                   <mat-icon>chat</mat-icon> {{ alert.whatsappSent ? 'Notificar de nuevo' : 'Notificar' }}
                 </button>
-                <button class="btn-resolve" (click)="resolve(alert.id)">
-                  <mat-icon>check</mat-icon> Marcar Resuelto
-                </button>
               </div>
               <div class="alert-actions" *ngIf="alert.status === 'resolved'">
-                <span class="resolved-text">Resuelto: {{ alert.resolvedAt | date:'short' }}</span>
+                <span class="resolved-text">Pedido registrado: {{ alert.resolvedAt | date:'short' }}. Desaparecerá cuando llegue.</span>
               </div>
             </div>
           </div>
@@ -378,10 +376,6 @@ export class AlertsComponent {
     return alert.currentStock <= alert.minStock;
   }
 
-  resolve(id: string) {
-    this.dataService.resolveAlert(id);
-  }
-
   // ---- Modal de pedido al proveedor ----
   openOrder(alert: StockAlert) {
     this.orderAlert.set(alert);
@@ -454,6 +448,8 @@ export class AlertsComponent {
 
     // Marca la alerta como notificada.
     this.dataService.markAlertWhatsappSent(alert.id);
+    // Permanece como pedido pendiente hasta que la mercancía sea recibida.
+    this.dataService.resolveAlert(alert.id);
 
     // Envía el correo al proveedor.
     this.dataService.emailSupplier(supplier, this.emailSubject, this.emailBody);

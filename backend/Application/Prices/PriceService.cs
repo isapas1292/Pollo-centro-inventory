@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using PolloCentro.Api.Application.Common.Exceptions;
 using PolloCentro.Api.Application.Common.Interfaces;
 using PolloCentro.Api.Domain.Entities;
 
@@ -28,13 +29,19 @@ public class PriceService : IPriceService
 
     public async Task<PriceRecordDto> CreateAsync(PriceRecordInput input, CancellationToken cancellationToken = default)
     {
+        if (!int.TryParse(input.ProductId, out var productId) || productId <= 0)
+            throw new ValidationException("El producto no es válido.");
+        var product = await _db.Productos.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.IdProducto == productId, cancellationToken)
+            ?? throw new NotFoundException("Producto", productId);
+
         var registro = new HistorialPrecio
         {
-            IdProducto = int.TryParse(input.ProductId, out var pid) ? pid : 0,
-            ProductoNombre = input.ProductName,
+            IdProducto = productId,
+            ProductoNombre = product.NombreProducto,
             Precio = input.Price,
-            Proveedor = input.Supplier,
-            RegistradoPor = input.RecordedBy,
+            Proveedor = input.Supplier?.Trim(),
+            RegistradoPor = input.RecordedBy?.Trim(),
             FechaRegistro = DateTime.Now
         };
         _db.HistorialPrecios.Add(registro);

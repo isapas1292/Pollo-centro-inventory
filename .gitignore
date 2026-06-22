@@ -42,3 +42,13 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Local secrets and machine-specific configuration
+.env
+.env.*
+!.env.example
+backend/appsettings.*.local.json
+*.pfx
+*.p12
+*.key
+.claude/settings.local.json

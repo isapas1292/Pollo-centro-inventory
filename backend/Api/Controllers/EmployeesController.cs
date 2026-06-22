@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PolloCentro.Api.Application.Employees;
 
@@ -5,6 +6,7 @@ namespace PolloCentro.Api.Api.Controllers;
 
 [ApiController]
 [Route("api/employees")]
+[Authorize(Roles = "admin")]
 public class EmployeesController : ControllerBase
 {
     private readonly IEmployeeService _employees;

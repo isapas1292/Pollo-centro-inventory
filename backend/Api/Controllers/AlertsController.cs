@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PolloCentro.Api.Application.Alerts;
 
@@ -5,6 +6,7 @@ namespace PolloCentro.Api.Api.Controllers;
 
 [ApiController]
 [Route("api/alerts")]
+[Authorize(Roles = "admin,manager")]
 public class AlertsController : ControllerBase
 {
     private readonly IAlertService _alerts;

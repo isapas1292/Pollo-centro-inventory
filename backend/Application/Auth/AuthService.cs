@@ -31,9 +31,10 @@ public class AuthService : IAuthService
             throw new ValidationException("Email y contraseña requeridos");
 
         // Proyección mínima: solo las columnas necesarias para autenticar, sin tracking.
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
         var user = await _db.Usuarios
             .AsNoTracking()
-            .Where(u => u.Correo == request.Email)
+            .Where(u => u.Correo == normalizedEmail)
             .Select(u => new
             {
                 u.IdUsuario,

@@ -23,7 +23,7 @@ import { DataService } from '../../core/services/data.service';
       <div class="kpi-grid">
         <div class="kpi"><span>Productos</span><strong>{{ items().length }}</strong></div>
         <div class="kpi"><span>Unidades en stock</span><strong>{{ totalUnits() | number:'1.0-2' }}</strong></div>
-        <div class="kpi"><span>Valor del inventario</span><strong>RD$ {{ totalValue() | number:'1.2-2' }}</strong></div>
+        <div class="kpi"><span>Valor del inventario</span><strong>$ {{ totalValue() | number:'1.2-2' }}</strong></div>
         <div class="kpi warning"><span>Stock bajo o crítico</span><strong>{{ lowStockCount() }}</strong></div>
       </div>
 
@@ -63,8 +63,8 @@ import { DataService } from '../../core/services/data.service';
                   <td>{{ item.supplierName || 'Sin proveedor' }}</td>
                   <td class="right">{{ item.currentStock | number:'1.0-2' }}</td>
                   <td>{{ item.unit }}</td>
-                  <td class="right">RD$ {{ item.currentPrice | number:'1.2-2' }}</td>
-                  <td class="right value">RD$ {{ item.currentStock * item.currentPrice | number:'1.2-2' }}</td>
+                  <td class="right">$ {{ item.currentPrice | number:'1.2-2' }}</td>
+                  <td class="right value">$ {{ item.currentStock * item.currentPrice | number:'1.2-2' }}</td>
                   <td><span class="status" [attr.data-status]="stockStatus(item.currentStock, item.minStock)">{{ statusLabel(item.currentStock, item.minStock) }}</span></td>
                   <td>{{ item.lastUpdated | date:'dd/MM/yyyy HH:mm' }}</td>
                 </tr>

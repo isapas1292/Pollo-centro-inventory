@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PolloCentro.Api.Application.Prices;
 
@@ -5,6 +6,7 @@ namespace PolloCentro.Api.Api.Controllers;
 
 [ApiController]
 [Route("api/prices")]
+[Authorize(Roles = "admin,manager")]
 public class PricesController : ControllerBase
 {
     private readonly IPriceService _prices;

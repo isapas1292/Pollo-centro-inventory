@@ -57,9 +57,9 @@ public static class DependencyInjection
             {
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
-                    ValidateIssuer = !string.IsNullOrEmpty(jwtSection["Issuer"]),
+                    ValidateIssuer = true,
                     ValidIssuer = jwtSection["Issuer"],
-                    ValidateAudience = !string.IsNullOrEmpty(jwtSection["Audience"]),
+                    ValidateAudience = true,
                     ValidAudience = jwtSection["Audience"],
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,

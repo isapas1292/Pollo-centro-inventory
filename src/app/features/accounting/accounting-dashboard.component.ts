@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -54,21 +54,21 @@ import { AccountingService } from '../../core/services/accounting.service';
             <div class="kpi-icon"><mat-icon>trending_up</mat-icon></div>
             <div class="kpi-body">
               <span class="kpi-label">Ingresos</span>
-              <span class="kpi-value">RD$ {{ s.totalIncome | number:'1.0-0' }}</span>
+              <span class="kpi-value">$ {{ s.totalIncome | number:'1.0-0' }}</span>
             </div>
           </div>
           <div class="kpi-card expense">
             <div class="kpi-icon"><mat-icon>trending_down</mat-icon></div>
             <div class="kpi-body">
               <span class="kpi-label">Gastos</span>
-              <span class="kpi-value">RD$ {{ s.totalExpenses | number:'1.0-0' }}</span>
+              <span class="kpi-value">$ {{ s.totalExpenses | number:'1.0-0' }}</span>
             </div>
           </div>
           <div class="kpi-card" [class.income]="s.netProfit >= 0" [class.expense]="s.netProfit < 0">
             <div class="kpi-icon"><mat-icon>savings</mat-icon></div>
             <div class="kpi-body">
               <span class="kpi-label">Utilidad Neta</span>
-              <span class="kpi-value">RD$ {{ s.netProfit | number:'1.0-0' }}</span>
+              <span class="kpi-value">$ {{ s.netProfit | number:'1.0-0' }}</span>
             </div>
           </div>
           <div class="kpi-card neutral">
@@ -89,29 +89,29 @@ import { AccountingService } from '../../core/services/accounting.service';
             @for (row of s.incomeByAccount; track row.account) {
               <div class="pnl-row">
                 <span>{{ row.account }}</span>
-                <span class="pos">RD$ {{ row.amount | number:'1.2-2' }}</span>
+                <span class="pos">$ {{ row.amount | number:'1.2-2' }}</span>
               </div>
             }
             <div class="pnl-row total">
               <span>Total Ingresos</span>
-              <span class="pos">RD$ {{ s.totalIncome | number:'1.2-2' }}</span>
+              <span class="pos">$ {{ s.totalIncome | number:'1.2-2' }}</span>
             </div>
 
             <div class="pnl-section-title">Gastos</div>
             @for (row of s.expenseByAccount; track row.account) {
               <div class="pnl-row">
                 <span>{{ row.account }}</span>
-                <span class="neg">RD$ {{ row.amount | number:'1.2-2' }}</span>
+                <span class="neg">$ {{ row.amount | number:'1.2-2' }}</span>
               </div>
             }
             <div class="pnl-row total">
               <span>Total Gastos</span>
-              <span class="neg">RD$ {{ s.totalExpenses | number:'1.2-2' }}</span>
+              <span class="neg">$ {{ s.totalExpenses | number:'1.2-2' }}</span>
             </div>
 
             <div class="pnl-row net" [class.profit]="s.netProfit >= 0" [class.loss]="s.netProfit < 0">
               <span>{{ s.netProfit >= 0 ? 'Utilidad Neta' : 'Pérdida Neta' }}</span>
-              <span>RD$ {{ s.netProfit | number:'1.2-2' }}</span>
+              <span>$ {{ s.netProfit | number:'1.2-2' }}</span>
             </div>
           </div>
 
@@ -122,8 +122,8 @@ import { AccountingService } from '../../core/services/accounting.service';
               @for (m of s.monthly; track m.period) {
                 <div class="chart-col">
                   <div class="bars">
-                    <div class="bar income-bar" [style.height.%]="barH(m.income)" [title]="'Ingresos: RD$ ' + (m.income | number:'1.0-0')"></div>
-                    <div class="bar expense-bar" [style.height.%]="barH(m.expense)" [title]="'Gastos: RD$ ' + (m.expense | number:'1.0-0')"></div>
+                    <div class="bar income-bar" [style.height.%]="barH(m.income)" [title]="'Ingresos: $ ' + (m.income | number:'1.0-0')"></div>
+                    <div class="bar expense-bar" [style.height.%]="barH(m.expense)" [title]="'Gastos: $ ' + (m.expense | number:'1.0-0')"></div>
                   </div>
                   <span class="chart-label">{{ m.label }}</span>
                 </div>
@@ -159,7 +159,7 @@ import { AccountingService } from '../../core/services/accounting.service';
                       </span>
                     </td>
                     <td class="right" [class.pos]="t.type === 'ingreso'" [class.neg]="t.type === 'gasto'">
-                      {{ t.type === 'gasto' ? '-' : '+' }}RD$ {{ t.amount | number:'1.2-2' }}
+                      {{ t.type === 'gasto' ? '-' : '+' }}$ {{ t.amount | number:'1.2-2' }}
                     </td>
                   </tr>
                 }
@@ -254,7 +254,7 @@ import { AccountingService } from '../../core/services/accounting.service';
     .empty { padding: 60px; text-align: center; color: var(--pc-text-muted); }
   `]
 })
-export class AccountingDashboardComponent {
+export class AccountingDashboardComponent implements OnInit {
   private accounting = inject(AccountingService);
 
   summary = this.accounting.summary;
@@ -263,6 +263,10 @@ export class AccountingDashboardComponent {
   fromDate = this.accounting.fromDate;
   toDate = this.accounting.toDate;
   recent = computed(() => this.accounting.transactions().slice(0, 8));
+
+  ngOnInit() {
+    this.accounting.loadAll();
+  }
 
   onLocal(e: Event) {
     this.accounting.setLocal((e.target as HTMLSelectElement).value);

@@ -24,16 +24,22 @@ public class TransactionService : ITransactionService
         if (!string.IsNullOrWhiteSpace(local) && local != "all")
             query = query.Where(t => t.UbicacionId == local);
         if (from.HasValue) query = query.Where(t => t.Fecha >= from.Value);
-        if (to.HasValue) query = query.Where(t => t.Fecha <= to.Value);
+        if (to.HasValue)
+        {
+            var exclusiveEnd = to.Value.Date.AddDays(1);
+            query = query.Where(t => t.Fecha < exclusiveEnd);
+        }
         return query;
     }
 
     public async Task<IReadOnlyList<TransactionDto>> GetAllAsync(
         string? local, DateTime? from, DateTime? to, CancellationToken cancellationToken = default)
     {
-        return await Filtered(local, from, to)
-            .OrderByDescending(t => t.Fecha)
-            .Select(t => new TransactionDto
+        var filtered = Filtered(local, from, to);
+        var query = from t in filtered
+            join account in _db.CuentasContables.AsNoTracking() on t.IdCuenta equals account.IdCuenta
+            orderby t.Fecha descending
+            select new TransactionDto
             {
                 Id = t.IdTransaccion.ToString(),
                 Date = t.Fecha,
@@ -42,39 +48,37 @@ public class TransactionService : ITransactionService
                 LocalName = t.UbicacionNombre,
                 AccountId = t.IdCuenta.ToString(),
                 AccountName = t.CuentaNombre,
-                AccountType = _db.CuentasContables
-                    .Where(c => c.IdCuenta == t.IdCuenta)
-                    .Select(c => c.Tipo)
-                    .FirstOrDefault() ?? string.Empty,
+                AccountType = account.Tipo,
                 Amount = t.Monto,
                 Description = t.Descripcion,
                 PaymentMethod = t.MetodoPago,
                 Reference = t.Referencia,
                 Contact = t.Contacto,
                 RecordedBy = t.RegistradoPor
-            })
-            .ToListAsync(cancellationToken);
+            };
+        return await query.ToListAsync(cancellationToken);
     }
 
     public async Task<TransactionDto> CreateAsync(TransactionInput input, CancellationToken cancellationToken = default)
     {
         var cuenta = await ResolveAccountAsync(input.AccountId, cancellationToken);
         var localNombre = await ResolveLocalNameAsync(input.LocalId, cancellationToken);
+        await EnsureUniqueReferenceAsync(input.Reference, null, cancellationToken);
 
         var tx = new TransaccionContable
         {
             Fecha = input.Date ?? DateTime.Now,
             Tipo = NormalizeType(input.Type),
-            UbicacionId = input.LocalId,
+            UbicacionId = input.LocalId.Trim(),
             UbicacionNombre = localNombre,
             IdCuenta = cuenta.IdCuenta,
             CuentaNombre = cuenta.Nombre,
             Monto = input.Amount,
-            Descripcion = input.Description,
-            MetodoPago = input.PaymentMethod,
-            Referencia = input.Reference,
-            Contacto = input.Contact,
-            RegistradoPor = input.RecordedBy,
+            Descripcion = NullIfWhiteSpace(input.Description),
+            MetodoPago = NullIfWhiteSpace(input.PaymentMethod),
+            Referencia = NullIfWhiteSpace(input.Reference),
+            Contacto = NullIfWhiteSpace(input.Contact),
+            RegistradoPor = NullIfWhiteSpace(input.RecordedBy),
             FechaRegistro = DateTime.Now
         };
         _db.TransaccionesContables.Add(tx);
@@ -88,18 +92,19 @@ public class TransactionService : ITransactionService
             ?? throw new NotFoundException("Transacción", id);
 
         var cuenta = await ResolveAccountAsync(input.AccountId, cancellationToken);
+        await EnsureUniqueReferenceAsync(input.Reference, id, cancellationToken);
 
         tx.Fecha = input.Date ?? tx.Fecha;
         tx.Tipo = NormalizeType(input.Type);
-        tx.UbicacionId = input.LocalId;
+        tx.UbicacionId = input.LocalId.Trim();
         tx.UbicacionNombre = await ResolveLocalNameAsync(input.LocalId, cancellationToken);
         tx.IdCuenta = cuenta.IdCuenta;
         tx.CuentaNombre = cuenta.Nombre;
         tx.Monto = input.Amount;
-        tx.Descripcion = input.Description;
-        tx.MetodoPago = input.PaymentMethod;
-        tx.Referencia = input.Reference;
-        tx.Contacto = input.Contact;
+        tx.Descripcion = NullIfWhiteSpace(input.Description);
+        tx.MetodoPago = NullIfWhiteSpace(input.PaymentMethod);
+        tx.Referencia = NullIfWhiteSpace(input.Reference);
+        tx.Contacto = NullIfWhiteSpace(input.Contact);
 
         await _db.SaveChangesAsync(cancellationToken);
         return ToDto(tx, cuenta.Tipo);
@@ -377,16 +382,32 @@ public class TransactionService : ITransactionService
     {
         if (string.IsNullOrWhiteSpace(localId)) return null;
         return await _db.Locales
-            .Where(l => l.Codigo == localId)
+            .Where(l => l.Codigo == localId && l.Estado)
             .Select(l => l.Nombre)
-            .FirstOrDefaultAsync(cancellationToken) ?? localId;
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new ValidationException("El local indicado no existe o está inactivo.");
     }
 
     private static string NormalizeType(string type)
     {
         var t = type.Trim().ToLowerInvariant();
-        return t == "ingreso" || t == "gasto" ? t : "gasto";
+        if (t is not ("ingreso" or "gasto"))
+            throw new ValidationException("El tipo debe ser ingreso o gasto.");
+        return t;
     }
+
+    private async Task EnsureUniqueReferenceAsync(
+        string? reference, int? currentId, CancellationToken cancellationToken)
+    {
+        var normalized = NullIfWhiteSpace(reference);
+        if (normalized is null) return;
+        var exists = await _db.TransaccionesContables.AsNoTracking()
+            .AnyAsync(t => t.Referencia == normalized && (!currentId.HasValue || t.IdTransaccion != currentId), cancellationToken);
+        if (exists) throw new ValidationException("Ya existe una transacción con esa referencia.");
+    }
+
+    private static string? NullIfWhiteSpace(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static TransactionDto ToDto(TransaccionContable t, string accountType) => new()
     {

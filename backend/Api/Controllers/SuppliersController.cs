@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PolloCentro.Api.Application.Suppliers;
 
@@ -5,6 +6,7 @@ namespace PolloCentro.Api.Api.Controllers;
 
 [ApiController]
 [Route("api/suppliers")]
+[Authorize(Roles = "admin,manager")]
 public class SuppliersController : ControllerBase
 {
     private readonly ISupplierService _suppliers;
@@ -27,6 +29,7 @@ public class SuppliersController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
+    [Authorize(Roles = "admin")]
     [ProducesResponseType(typeof(SupplierDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<SupplierDto>> Update(
@@ -34,6 +37,7 @@ public class SuppliersController : ControllerBase
         => Ok(await _suppliers.UpdateAsync(id, input, cancellationToken));
 
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = "admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)

@@ -5,8 +5,8 @@ POST {{host}}/api/auth/login
 Content-Type: application/json
 
 {
-  "email": "admin@pollocentro.com",
-  "password": "admin123"
+  "email": "usuario@pollocentro.com",
+  "password": "<contraseña-segura>"
 }
 
 ### Inventory

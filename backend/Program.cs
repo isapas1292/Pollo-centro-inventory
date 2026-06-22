@@ -1,3 +1,4 @@
+using System.Net;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
@@ -20,6 +21,7 @@ builder.Services.AddApplication();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 1_048_576);
 
 // CORS: orígenes EXPLÍCITOS y con credenciales (la cookie de auth viaja entre orígenes).
 // No se permite AllowAnyOrigin porque es incompatible con AllowCredentials y menos seguro.
@@ -29,6 +31,8 @@ if (builder.Environment.IsDevelopment())
         .Concat(["http://localhost:4200", "http://localhost:4300"])
         .Distinct()
         .ToArray();
+if (allowedOrigins.Any(origin => origin == "*" || !Uri.TryCreate(origin, UriKind.Absolute, out _)))
+    throw new InvalidOperationException("Cors:AllowedOrigins contiene un origen inseguro o inválido.");
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
     policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 
@@ -37,9 +41,15 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    foreach (var value in builder.Configuration.GetSection("ReverseProxy:KnownProxies").Get<string[]>() ?? [])
+    {
+        if (!IPAddress.TryParse(value, out var address))
+            throw new InvalidOperationException($"IP de proxy inválida: {value}");
+        options.KnownProxies.Add(address);
+    }
     // En producción conviene restringir a los proxies/redes conocidos (KnownProxies/KnownNetworks).
-    options.KnownNetworks.Clear();
-    options.KnownProxies.Clear();
+    // Conserva las redes/proxies seguros predeterminados (loopback). Los proxies
+    // adicionales deben declararse explícitamente en la configuración del host.
 });
 
 // Rate limiting: protege contra abuso y fuerza bruta.
@@ -71,6 +81,10 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+if (!app.Environment.IsDevelopment() &&
+    (string.IsNullOrWhiteSpace(app.Configuration["AllowedHosts"]) || app.Configuration["AllowedHosts"] == "*"))
+    throw new InvalidOperationException("AllowedHosts debe restringirse explícitamente en producción.");
+
 // ----------------------------------------------------------------------------
 // Comandos CLI
 // ----------------------------------------------------------------------------
@@ -78,6 +92,11 @@ if (args.Length > 0 && args[0] == "seed-admin")
 {
     // `dotnet run -- seed-admin` (reemplaza seed-user.js)
     await DatabaseSeeder.SeedAdminAsync(app.Services);
+    return;
+}
+if (args.Length > 0 && args[0] == "rotate-local-passwords")
+{
+    await DatabaseSeeder.RotateLocalPasswordsAsync(app.Services);
     return;
 }
 if (args.Length > 0 && args[0] == "db-init")
@@ -89,8 +108,7 @@ if (args.Length > 0 && args[0] == "db-init")
 
 // Al arrancar: garantiza que existan las tablas operacionales. Siembra datos
 // de demostración solo en Development o si Database:SeedOnStartup está activo.
-var seedOnStartup = app.Environment.IsDevelopment()
-    || app.Configuration.GetValue<bool>("Database:SeedOnStartup");
+var seedOnStartup = app.Configuration.GetValue<bool>("Database:SeedOnStartup");
 await DatabaseInitializer.InitializeAsync(app.Services, seedData: seedOnStartup);
 
 // ----------------------------------------------------------------------------
@@ -116,6 +134,11 @@ app.Use(async (context, next) =>
     headers["X-Frame-Options"] = "DENY";
     headers["Referrer-Policy"] = "no-referrer";
     headers["X-XSS-Protection"] = "0";
+    headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'";
+    headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+    headers["Cross-Origin-Opener-Policy"] = "same-origin";
+    if (context.Request.Path.StartsWithSegments("/api/auth"))
+        headers["Cache-Control"] = "no-store";
     await next();
 });
 

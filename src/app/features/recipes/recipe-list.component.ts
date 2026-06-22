@@ -1,4 +1,4 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -7,11 +7,13 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { DataService } from '../../core/services/data.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 import { Recipe } from '../../core/models';
 
 @Component({
   selector: 'app-recipe-list',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule, RouterModule, MatIconModule, MatButtonModule, MatTooltipModule],
   template: `
     <div class="recipes-grid stagger-children">
@@ -247,11 +249,12 @@ export class RecipeListComponent {
 
   constructor(
     private dataService: DataService,
-    public auth: AuthService
+    public auth: AuthService,
+    private confirm: ConfirmService
   ) {}
 
-  deleteRecipe(id: string) {
-    if (confirm('¿Estás seguro de que deseas eliminar esta receta? No podrás deshacer esta acción.')) {
+  async deleteRecipe(id: string) {
+    if (await this.confirm.ask('¿Eliminar esta receta? No podrás deshacer esta acción.', { confirmText: 'Eliminar' })) {
       this.dataService.deleteRecipe(id);
     }
   }

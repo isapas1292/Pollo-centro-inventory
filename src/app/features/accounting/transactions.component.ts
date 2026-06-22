@@ -1,9 +1,10 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { AccountingService } from '../../core/services/accounting.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 import { Transaction, TransactionType, PAYMENT_METHODS } from '../../core/models';
 
 @Component({
@@ -72,7 +73,7 @@ import { Transaction, TransactionType, PAYMENT_METHODS } from '../../core/models
                     </span>
                   </td>
                   <td class="right" [class.pos]="t.type === 'ingreso'" [class.neg]="t.type === 'gasto'">
-                    {{ t.type === 'gasto' ? '-' : '+' }}RD$ {{ t.amount | number:'1.2-2' }}
+                    {{ t.type === 'gasto' ? '-' : '+' }}$ {{ t.amount | number:'1.2-2' }}
                   </td>
                   <td class="right">
                     <button class="icon-btn edit-btn" (click)="openModal(t)"><mat-icon>edit</mat-icon></button>
@@ -122,7 +123,7 @@ import { Transaction, TransactionType, PAYMENT_METHODS } from '../../core/models
                   </select>
                 </div>
                 <div class="form-group">
-                  <label>Monto (RD$)</label>
+                  <label>Monto ($)</label>
                   <input type="number" min="0" step="0.01" [(ngModel)]="form.amount" class="pc-input" placeholder="0.00">
                 </div>
               </div>
@@ -236,9 +237,10 @@ import { Transaction, TransactionType, PAYMENT_METHODS } from '../../core/models
     @media (max-width: 600px) { .form-row { flex-direction: column; gap: 14px; } }
   `]
 })
-export class TransactionsComponent {
+export class TransactionsComponent implements OnInit {
   private accounting = inject(AccountingService);
   private auth = inject(AuthService);
+  private confirm = inject(ConfirmService);
 
   transactions = this.accounting.transactions;
   accounts = this.accounting.accounts;
@@ -259,6 +261,10 @@ export class TransactionsComponent {
   });
 
   form = this.blankForm();
+
+  ngOnInit() {
+    this.accounting.loadAll();
+  }
 
   accountsForType() {
     const wanted = this.form.type === 'ingreso' ? 'Ingreso' : 'Gasto';
@@ -355,7 +361,7 @@ export class TransactionsComponent {
   }
 
   async remove(t: Transaction) {
-    if (confirm('¿Eliminar esta transacción?')) {
+    if (await this.confirm.ask('¿Eliminar esta transacción?', { confirmText: 'Eliminar' })) {
       await this.accounting.deleteTransaction(t.id);
     }
   }

@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { Account, Transaction, AccountingSummary } from '../models';
 import { DataService } from './data.service';
+import { environment } from '../../../environments/environment';
 
 /**
  * AccountingService — Módulo de contabilidad (estilo QuickBooks), solo para admins.
@@ -12,7 +13,7 @@ import { DataService } from './data.service';
 export class AccountingService {
   private http = inject(HttpClient);
   private dataService = inject(DataService);
-  private readonly api = 'http://localhost:3000/api/accounting';
+  private readonly api = `${environment.apiUrl}/accounting`;
 
   private _accounts = signal<Account[]>([]);
   private _transactions = signal<Transaction[]>([]);

@@ -3,7 +3,6 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using PolloCentro.Api.Application.Abstractions.Security;
 using PolloCentro.Api.Domain.Catalogs;
 using PolloCentro.Api.Domain.Entities;
 using PolloCentro.Api.Infrastructure.Persistence;
@@ -31,7 +30,6 @@ public static class DatabaseInitializer
     {
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<AppDbContext>>();
 
         await EnsureTablesAsync(db, ct);
@@ -46,19 +44,23 @@ public static class DatabaseInitializer
         // Asegura un precio de venta con margen en recetas que aún no lo tengan.
         await BackfillRecipeSalePricesAsync(db, ct);
 
-        if (!seedData) return;
+        if (seedData)
+        {
+            await SeedEmpleadosYTurnosAsync(db, ct);
+            await SeedRecetasAsync(db, ct);
+            await EnsureProductStockAsync(db, ct);
+            await SeedHistorialPreciosAsync(db, ct);
+            await SeedAlertasAsync(db, ct);
+            await SeedRecepcionesAsync(db, ct);
+            await SeedAuditoriaAsync(db, ct);
+            await SeedContabilidadAsync(db, ct);
+        }
 
-        await SeedExtraUsersAsync(db, hasher, ct);
-        await SeedEmpleadosYTurnosAsync(db, ct);
-        await SeedRecetasAsync(db, ct);
-        await EnsureProductStockAsync(db, ct);
-        await SeedHistorialPreciosAsync(db, ct);
-        await SeedAlertasAsync(db, ct);
-        await SeedRecepcionesAsync(db, ct);
-        await SeedAuditoriaAsync(db, ct);
-        await SeedContabilidadAsync(db, ct);
+        await ReconcilePendingOrderAlertsAsync(db, ct);
+        await BackfillOrderTransactionsAsync(db, ct);
+        await EnsureDatabaseOptimizationsAsync(db, ct);
 
-        logger.LogInformation("Siembra de datos de demostración completada.");
+        logger.LogInformation("Inicialización y optimización de base de datos completadas.");
     }
 
     // ------------------------------------------------------------------ esquema
@@ -172,6 +174,10 @@ IF COL_LENGTH(N'dbo.TransaccionesContables', 'UbicacionNombre') IS NULL
     ALTER TABLE dbo.TransaccionesContables ADD UbicacionNombre VARCHAR(150) NULL;
 IF OBJECT_ID(N'dbo.Recetas', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.Recetas', 'StockPreparado') IS NULL
     ALTER TABLE dbo.Recetas ADD StockPreparado DECIMAL(10,2) NOT NULL DEFAULT(0);
+IF COL_LENGTH(N'dbo.Empleados', 'IdLocal') IS NULL
+    ALTER TABLE dbo.Empleados ADD IdLocal INT NULL;
+IF COL_LENGTH(N'dbo.Empleados', 'LocalNombre') IS NULL
+    ALTER TABLE dbo.Empleados ADD LocalNombre VARCHAR(150) NULL;
 IF OBJECT_ID(N'dbo.Locales', N'U') IS NULL
 CREATE TABLE dbo.Locales (
     IdLocal INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
@@ -194,25 +200,6 @@ CREATE TABLE dbo.Envios (
 
     private static Task EnsureTablesAsync(AppDbContext db, CancellationToken ct)
         => db.Database.ExecuteSqlRawAsync(CreateTablesSql, ct);
-
-    // ------------------------------------------------------------------ usuarios
-    private static async Task SeedExtraUsersAsync(AppDbContext db, IPasswordHasher hasher, CancellationToken ct)
-    {
-        if (await db.Usuarios.CountAsync(ct) > 1) return;
-
-        var roles = await db.Roles.ToListAsync(ct);
-        int RoleId(string name) => roles.FirstOrDefault(r => r.NombreRol == name)?.IdRol ?? roles[0].IdRol;
-
-        var nuevos = new[]
-        {
-            new Usuario { IdRol = RoleId("manager"), Nombre = "Gerente", Apellido = "General", NombreUsuario = "gerente",
-                Correo = "gerente@pollocentro.com", Contrasena = hasher.Hash("manager123"), Telefono = "809-555-1001", Estado = true },
-            new Usuario { IdRol = RoleId("operations"), Nombre = "Operador", Apellido = "Tienda", NombreUsuario = "operador",
-                Correo = "operador@pollocentro.com", Contrasena = hasher.Hash("oper123"), Telefono = "809-555-1002", Estado = true },
-        };
-        db.Usuarios.AddRange(nuevos.Where(u => !db.Usuarios.Any(x => x.Correo == u.Correo)));
-        await db.SaveChangesAsync(ct);
-    }
 
     // ------------------------------------------------------------------ empleados/turnos
     private static async Task SeedEmpleadosYTurnosAsync(AppDbContext db, CancellationToken ct)
@@ -564,6 +551,205 @@ CREATE TABLE dbo.Envios (
         }
         await db.SaveChangesAsync(ct);
     }
+
+    private static async Task ReconcilePendingOrderAlertsAsync(AppDbContext db, CancellationToken ct)
+    {
+        var pendingProductIds = await db.Recepciones
+            .Where(r => r.Estado == "pending")
+            .Select(r => r.IdProducto)
+            .Distinct()
+            .ToListAsync(ct);
+        if (pendingProductIds.Count == 0) return;
+
+        var alerts = await db.Alertas
+            .Where(a => a.Estado == "active" && pendingProductIds.Contains(a.IdProducto))
+            .ToListAsync(ct);
+        foreach (var alert in alerts)
+        {
+            alert.Estado = "resolved";
+            alert.FechaResolucion = DateTime.Now;
+        }
+        if (alerts.Count > 0) await db.SaveChangesAsync(ct);
+    }
+
+    private static async Task BackfillOrderTransactionsAsync(AppDbContext db, CancellationToken ct)
+    {
+        var orders = await db.Recepciones.AsNoTracking().ToListAsync(ct);
+        if (orders.Count == 0) return;
+
+        var cancelledReferences = orders
+            .Where(o => o.Estado == "cancelled")
+            .Select(o => $"PEDIDO-{o.IdRecepcion}")
+            .ToList();
+        if (cancelledReferences.Count > 0)
+        {
+            var cancelledTransactions = await db.TransaccionesContables
+                .Where(t => t.Referencia != null && cancelledReferences.Contains(t.Referencia))
+                .ToListAsync(ct);
+            if (cancelledTransactions.Count > 0)
+                db.TransaccionesContables.RemoveRange(cancelledTransactions);
+        }
+
+        var account = await db.CuentasContables.FirstOrDefaultAsync(c => c.Codigo == "5000", ct);
+        if (account is null)
+        {
+            account = new CuentaContable
+            {
+                Codigo = "5000",
+                Nombre = "Compras de Mercancía",
+                Tipo = "Gasto",
+                Estado = true
+            };
+            db.CuentasContables.Add(account);
+            await db.SaveChangesAsync(ct);
+        }
+
+        var validOrders = orders.Where(o => o.Estado != "cancelled").ToList();
+        var references = validOrders.Select(o => $"PEDIDO-{o.IdRecepcion}").ToList();
+        var existing = await db.TransaccionesContables
+            .Where(t => t.Referencia != null && references.Contains(t.Referencia))
+            .Select(t => t.Referencia!)
+            .ToListAsync(ct);
+        var existingSet = existing.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var order in validOrders.Where(o => !existingSet.Contains($"PEDIDO-{o.IdRecepcion}")))
+        {
+            db.TransaccionesContables.Add(new TransaccionContable
+            {
+                Fecha = order.FechaRecepcion,
+                Tipo = "gasto",
+                UbicacionId = "loc-prep",
+                UbicacionNombre = "Pollo Centro - Prep",
+                IdCuenta = account.IdCuenta,
+                CuentaNombre = account.Nombre,
+                Monto = order.Total > 0 ? order.Total : order.Cantidad * order.Precio,
+                Descripcion = $"Pedido {(order.Estado == "completed" ? "recibido" : "pendiente")}: {order.Cantidad} de {order.ProductoNombre}",
+                MetodoPago = "pedido",
+                Referencia = $"PEDIDO-{order.IdRecepcion}",
+                Contacto = order.ProveedorNombre,
+                RegistradoPor = order.RecibidoPor ?? "Sistema",
+                FechaRegistro = DateTime.Now
+            });
+        }
+        await db.SaveChangesAsync(ct);
+    }
+
+    private const string DatabaseOptimizationsSql = @"
+DECLARE @dropSql nvarchar(max);
+
+IF COL_LENGTH(N'dbo.Inventario', 'Descripcion') IS NOT NULL
+BEGIN
+    SET @dropSql = N'IF NOT EXISTS (SELECT 1 FROM dbo.Inventario WHERE Descripcion IS NOT NULL)
+    BEGIN
+        DECLARE @dc sysname, @sql nvarchar(500);
+        SELECT @dc = d.name FROM sys.default_constraints d JOIN sys.columns c ON c.default_object_id = d.object_id
+        WHERE c.object_id = OBJECT_ID(N''dbo.Inventario'') AND c.name = N''Descripcion'';
+        IF @dc IS NOT NULL BEGIN SET @sql = N''ALTER TABLE dbo.Inventario DROP CONSTRAINT '' + QUOTENAME(@dc); EXEC sp_executesql @sql; END;
+        ALTER TABLE dbo.Inventario DROP COLUMN Descripcion;
+    END;';
+    EXEC sp_executesql @dropSql;
+END;
+
+IF COL_LENGTH(N'dbo.Inventario', 'FechaVencimiento') IS NOT NULL
+BEGIN
+    SET @dropSql = N'IF NOT EXISTS (SELECT 1 FROM dbo.Inventario WHERE FechaVencimiento IS NOT NULL)
+    BEGIN
+        DECLARE @dc sysname, @sql nvarchar(500);
+        SELECT @dc = d.name FROM sys.default_constraints d JOIN sys.columns c ON c.default_object_id = d.object_id
+        WHERE c.object_id = OBJECT_ID(N''dbo.Inventario'') AND c.name = N''FechaVencimiento'';
+        IF @dc IS NOT NULL BEGIN SET @sql = N''ALTER TABLE dbo.Inventario DROP CONSTRAINT '' + QUOTENAME(@dc); EXEC sp_executesql @sql; END;
+        ALTER TABLE dbo.Inventario DROP COLUMN FechaVencimiento;
+    END;';
+    EXEC sp_executesql @dropSql;
+END;
+
+IF COL_LENGTH(N'dbo.Inventario', 'TotalUnits') IS NOT NULL
+BEGIN
+    SET @dropSql = N'IF NOT EXISTS (SELECT 1 FROM dbo.Inventario WHERE TotalUnits <> 0)
+    BEGIN
+        DECLARE @dc sysname, @sql nvarchar(500);
+        SELECT @dc = d.name FROM sys.default_constraints d JOIN sys.columns c ON c.default_object_id = d.object_id
+        WHERE c.object_id = OBJECT_ID(N''dbo.Inventario'') AND c.name = N''TotalUnits'';
+        IF @dc IS NOT NULL BEGIN SET @sql = N''ALTER TABLE dbo.Inventario DROP CONSTRAINT '' + QUOTENAME(@dc); EXEC sp_executesql @sql; END;
+        ALTER TABLE dbo.Inventario DROP COLUMN TotalUnits;
+    END;';
+    EXEC sp_executesql @dropSql;
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.Inventario') AND name = N'IX_Inventario_NombreProducto')
+    CREATE INDEX IX_Inventario_NombreProducto ON dbo.Inventario(NombreProducto);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.Inventario') AND name = N'IX_Inventario_IdProveedor')
+    CREATE INDEX IX_Inventario_IdProveedor ON dbo.Inventario(IdProveedor) WHERE IdProveedor IS NOT NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.Alertas') AND name = N'UX_Alertas_IdProducto')
+    CREATE UNIQUE INDEX UX_Alertas_IdProducto ON dbo.Alertas(IdProducto);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.Alertas') AND name = N'IX_Alertas_Estado_Fecha')
+    CREATE INDEX IX_Alertas_Estado_Fecha ON dbo.Alertas(Estado, FechaCreacion DESC) INCLUDE (IdProducto);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.Recepciones') AND name = N'IX_Recepciones_Estado_Producto')
+    CREATE INDEX IX_Recepciones_Estado_Producto ON dbo.Recepciones(Estado, IdProducto) INCLUDE (FechaRecepcion);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.Recepciones') AND name = N'IX_Recepciones_Fecha')
+    CREATE INDEX IX_Recepciones_Fecha ON dbo.Recepciones(FechaRecepcion DESC);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.TransaccionesContables') AND name = N'IX_Transacciones_Ubicacion_Fecha')
+    CREATE INDEX IX_Transacciones_Ubicacion_Fecha ON dbo.TransaccionesContables(UbicacionId, Fecha DESC) INCLUDE (Tipo, IdCuenta, Monto, CuentaNombre);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.TransaccionesContables') AND name = N'IX_Transacciones_Fecha_Tipo')
+    CREATE INDEX IX_Transacciones_Fecha_Tipo ON dbo.TransaccionesContables(Fecha DESC, Tipo) INCLUDE (Monto, IdCuenta);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.TransaccionesContables') AND name = N'UX_Transacciones_Referencia')
+    CREATE UNIQUE INDEX UX_Transacciones_Referencia ON dbo.TransaccionesContables(Referencia) WHERE Referencia IS NOT NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.CuentasContables') AND name = N'UX_CuentasContables_Codigo')
+    CREATE UNIQUE INDEX UX_CuentasContables_Codigo ON dbo.CuentasContables(Codigo);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.RecetaIngredientes') AND name = N'UX_RecetaIngredientes_Receta_Producto')
+    CREATE UNIQUE INDEX UX_RecetaIngredientes_Receta_Producto ON dbo.RecetaIngredientes(IdReceta, IdProducto);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.Turnos') AND name = N'IX_Turnos_SemanaKey')
+    CREATE INDEX IX_Turnos_SemanaKey ON dbo.Turnos(SemanaKey);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.Turnos') AND name = N'IX_Turnos_IdEmpleado')
+    CREATE INDEX IX_Turnos_IdEmpleado ON dbo.Turnos(IdEmpleado);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.HistorialPrecios') AND name = N'IX_HistorialPrecios_Producto_Fecha')
+    CREATE INDEX IX_HistorialPrecios_Producto_Fecha ON dbo.HistorialPrecios(IdProducto, FechaRegistro DESC);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.Envios') AND name = N'IX_Envios_FechaEnvio')
+    CREATE INDEX IX_Envios_FechaEnvio ON dbo.Envios(FechaEnvio DESC);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.Auditoria') AND name = N'IX_Auditoria_FechaHora')
+    CREATE INDEX IX_Auditoria_FechaHora ON dbo.Auditoria(FechaHora DESC);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.RegistroPreparaciones') AND name = N'IX_RegistroPreparaciones_Fecha')
+    CREATE INDEX IX_RegistroPreparaciones_Fecha ON dbo.RegistroPreparaciones(FechaPreparacion DESC);
+
+IF OBJECT_ID(N'dbo.CK_Inventario_ValoresNoNegativos', N'C') IS NULL
+    ALTER TABLE dbo.Inventario WITH CHECK ADD CONSTRAINT CK_Inventario_ValoresNoNegativos CHECK (CantidadDisponible >= 0 AND StockMinimo >= 0 AND CostoUnitario >= 0);
+IF OBJECT_ID(N'dbo.CK_Alertas_EstadoValores', N'C') IS NULL
+    ALTER TABLE dbo.Alertas WITH CHECK ADD CONSTRAINT CK_Alertas_EstadoValores CHECK (Estado IN ('active','resolved') AND StockActual >= 0 AND StockMinimo >= 0);
+IF OBJECT_ID(N'dbo.CK_Recepciones_Valores', N'C') IS NULL
+    ALTER TABLE dbo.Recepciones WITH CHECK ADD CONSTRAINT CK_Recepciones_Valores CHECK (Estado IN ('pending','completed','cancelled') AND Cantidad > 0 AND Precio >= 0 AND Total >= 0);
+IF OBJECT_ID(N'dbo.CK_Transacciones_Valores', N'C') IS NULL
+    ALTER TABLE dbo.TransaccionesContables WITH CHECK ADD CONSTRAINT CK_Transacciones_Valores CHECK (Tipo IN ('ingreso','gasto') AND Monto > 0);
+IF OBJECT_ID(N'dbo.CK_CuentasContables_Tipo', N'C') IS NULL
+    ALTER TABLE dbo.CuentasContables WITH CHECK ADD CONSTRAINT CK_CuentasContables_Tipo CHECK (Tipo IN ('Activo','Pasivo','Capital','Ingreso','Gasto'));
+IF OBJECT_ID(N'dbo.CK_Turnos_DiaSemana', N'C') IS NULL
+    ALTER TABLE dbo.Turnos WITH CHECK ADD CONSTRAINT CK_Turnos_DiaSemana CHECK (DiaSemana BETWEEN 0 AND 6);
+IF OBJECT_ID(N'dbo.CK_RecetaIngredientes_Cantidad', N'C') IS NULL
+    ALTER TABLE dbo.RecetaIngredientes WITH CHECK ADD CONSTRAINT CK_RecetaIngredientes_Cantidad CHECK (CantidadNecesaria > 0);
+IF OBJECT_ID(N'dbo.CK_HistorialPrecios_Precio', N'C') IS NULL
+    ALTER TABLE dbo.HistorialPrecios WITH CHECK ADD CONSTRAINT CK_HistorialPrecios_Precio CHECK (Precio >= 0);
+IF OBJECT_ID(N'dbo.CK_Envios_ItemsJson', N'C') IS NULL
+    ALTER TABLE dbo.Envios WITH CHECK ADD CONSTRAINT CK_Envios_ItemsJson CHECK (ISJSON(ItemsJson) = 1);
+
+IF OBJECT_ID(N'dbo.FK_Alertas_Inventario', N'F') IS NULL
+    ALTER TABLE dbo.Alertas WITH CHECK ADD CONSTRAINT FK_Alertas_Inventario FOREIGN KEY (IdProducto) REFERENCES dbo.Inventario(IdProducto);
+IF OBJECT_ID(N'dbo.FK_Recepciones_Inventario', N'F') IS NULL
+    ALTER TABLE dbo.Recepciones WITH CHECK ADD CONSTRAINT FK_Recepciones_Inventario FOREIGN KEY (IdProducto) REFERENCES dbo.Inventario(IdProducto);
+IF OBJECT_ID(N'dbo.FK_Recepciones_Proveedores', N'F') IS NULL
+    ALTER TABLE dbo.Recepciones WITH CHECK ADD CONSTRAINT FK_Recepciones_Proveedores FOREIGN KEY (IdProveedor) REFERENCES dbo.Proveedores(IdProveedor);
+IF OBJECT_ID(N'dbo.FK_Turnos_Empleados', N'F') IS NULL
+    ALTER TABLE dbo.Turnos WITH CHECK ADD CONSTRAINT FK_Turnos_Empleados FOREIGN KEY (IdEmpleado) REFERENCES dbo.Empleados(IdEmpleado);
+IF OBJECT_ID(N'dbo.FK_Empleados_Locales', N'F') IS NULL
+    ALTER TABLE dbo.Empleados WITH CHECK ADD CONSTRAINT FK_Empleados_Locales FOREIGN KEY (IdLocal) REFERENCES dbo.Locales(IdLocal);
+IF OBJECT_ID(N'dbo.FK_Envios_Locales', N'F') IS NULL
+    ALTER TABLE dbo.Envios WITH CHECK ADD CONSTRAINT FK_Envios_Locales FOREIGN KEY (IdLocal) REFERENCES dbo.Locales(IdLocal);
+IF OBJECT_ID(N'dbo.FK_Transacciones_CuentasContables', N'F') IS NULL
+    ALTER TABLE dbo.TransaccionesContables WITH CHECK ADD CONSTRAINT FK_Transacciones_CuentasContables FOREIGN KEY (IdCuenta) REFERENCES dbo.CuentasContables(IdCuenta);
+IF OBJECT_ID(N'dbo.FK_RegistroPreparaciones_Recetas', N'F') IS NULL
+    ALTER TABLE dbo.RegistroPreparaciones WITH CHECK ADD CONSTRAINT FK_RegistroPreparaciones_Recetas FOREIGN KEY (IdReceta) REFERENCES dbo.Recetas(IdReceta);
+";
+
+    private static Task EnsureDatabaseOptimizationsAsync(AppDbContext db, CancellationToken ct)
+        => db.Database.ExecuteSqlRawAsync(DatabaseOptimizationsSql, ct);
 
     // ------------------------------------------------------------------ util
     private static string GetCurrentWeekKey()

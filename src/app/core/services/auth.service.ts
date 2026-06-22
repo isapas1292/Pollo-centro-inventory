@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { AppUser, UserRole, ROLE_PERMISSIONS } from '../models';
+import { environment } from '../../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -13,7 +14,7 @@ export class AuthService {
   readonly userRole = computed(() => this.currentUser()?.role ?? null);
   readonly userName = computed(() => this.currentUser()?.displayName ?? '');
 
-  private readonly api = 'http://localhost:3000/api/auth';
+  private readonly api = `${environment.apiUrl}/auth`;
 
   constructor(private router: Router, private http: HttpClient) {
     // El token vive en una cookie HttpOnly (no accesible a JS). Restauramos el perfil

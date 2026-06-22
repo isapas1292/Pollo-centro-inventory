@@ -27,7 +27,7 @@ public class OrderReceptionInput
     [Range(0.0001, 1_000_000, ErrorMessage = "La cantidad debe ser mayor que cero")]
     public decimal Quantity { get; set; }
 
-    [Range(0, 1_000_000_000, ErrorMessage = "El precio no puede ser negativo")]
+    [Range(0.01, 1_000_000_000, ErrorMessage = "El precio debe ser mayor que cero")]
     public decimal Price { get; set; }
 
     [Range(0, 1_000_000_000, ErrorMessage = "El total no puede ser negativo")]

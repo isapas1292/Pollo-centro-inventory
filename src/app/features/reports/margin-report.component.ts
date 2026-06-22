@@ -38,7 +38,7 @@ interface MarginRow {
         </div>
         <div class="kpi-card">
           <span class="kpi-label">Ganancia total (por unidad)</span>
-          <span class="kpi-value">RD$ {{ totalProfit() | number:'1.2-2' }}</span>
+          <span class="kpi-value">$ {{ totalProfit() | number:'1.2-2' }}</span>
         </div>
       </div>
 
@@ -59,9 +59,9 @@ interface MarginRow {
               @for (r of rows(); track r.id) {
                 <tr>
                   <td class="name">{{ r.name }}</td>
-                  <td class="right">RD$ {{ r.cost | number:'1.2-2' }}</td>
-                  <td class="right">RD$ {{ r.price | number:'1.2-2' }}</td>
-                  <td class="right" [class.pos]="r.profit >= 0" [class.neg]="r.profit < 0">RD$ {{ r.profit | number:'1.2-2' }}</td>
+                  <td class="right">$ {{ r.cost | number:'1.2-2' }}</td>
+                  <td class="right">$ {{ r.price | number:'1.2-2' }}</td>
+                  <td class="right" [class.pos]="r.profit >= 0" [class.neg]="r.profit < 0">$ {{ r.profit | number:'1.2-2' }}</td>
                   <td class="right">
                     <span class="pill" [class.pill-good]="r.marginPct >= 50" [class.pill-mid]="r.marginPct >= 20 && r.marginPct < 50" [class.pill-bad]="r.marginPct < 20">
                       {{ r.marginPct.toFixed(1) }}%

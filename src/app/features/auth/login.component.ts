@@ -88,13 +88,6 @@ import { AuthService } from '../../core/services/auth.service';
             }
           </button>
         </form>
-
-        <div class="login-footer">
-          <p class="demo-hint">
-            <mat-icon>info</mat-icon>
-            Demo: admin&#64;pollocentro.com / admin123
-          </p>
-        </div>
       </div>
     </div>
   `,

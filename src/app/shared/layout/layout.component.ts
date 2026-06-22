@@ -8,6 +8,8 @@ import { MatBadgeModule } from '@angular/material/badge';
 import { MatMenuModule } from '@angular/material/menu';
 import { AuthService } from '../../core/services/auth.service';
 import { DataService } from '../../core/services/data.service';
+import { NotificationService } from '../../core/services/notification.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 
 interface NavItem {
   icon: string;
@@ -31,6 +33,7 @@ interface NavItem {
     MatMenuModule,
   ],
   template: `
+    @if (dataService.loading()) { <div class="global-loading-bar"></div> }
     <div class="layout" [class.sidebar-collapsed]="sidebarCollapsed()">
       <!-- Sidebar -->
       <aside class="sidebar" [class.collapsed]="sidebarCollapsed()">
@@ -165,6 +168,34 @@ interface NavItem {
     <!-- Mobile overlay -->
     @if (!sidebarCollapsed()) {
       <div class="mobile-overlay" (click)="sidebarCollapsed.set(true)"></div>
+    }
+
+    <!-- Notificaciones globales (toasts) -->
+    <div class="toast-stack">
+      @for (t of notify.toasts(); track t.id) {
+        <div class="toast" [class.t-success]="t.type === 'success'" [class.t-error]="t.type === 'error'" [class.t-info]="t.type === 'info'">
+          <mat-icon>{{ t.type === 'success' ? 'check_circle' : t.type === 'error' ? 'error' : 'info' }}</mat-icon>
+          <span>{{ t.message }}</span>
+          <button class="toast-close" (click)="notify.dismiss(t.id)"><mat-icon>close</mat-icon></button>
+        </div>
+      }
+    </div>
+
+    <!-- Diálogo de confirmación global -->
+    @if (confirm.state(); as c) {
+      <div class="confirm-backdrop" (click)="confirm.resolve(false)">
+        <div class="confirm-card" (click)="$event.stopPropagation()">
+          <div class="confirm-icon" [class.danger]="c.danger">
+            <mat-icon>{{ c.danger ? 'warning' : 'help' }}</mat-icon>
+          </div>
+          <h3>{{ c.title }}</h3>
+          <p>{{ c.message }}</p>
+          <div class="confirm-actions">
+            <button class="cf-cancel" (click)="confirm.resolve(false)">{{ c.cancelText }}</button>
+            <button class="cf-ok" [class.danger]="c.danger" (click)="confirm.resolve(true)">{{ c.confirmText }}</button>
+          </div>
+        </div>
+      </div>
     }
   `,
   styles: [`
@@ -538,6 +569,66 @@ interface NavItem {
         padding: 16px;
       }
     }
+
+    /* --- Toasts globales --- */
+    .toast-stack {
+      position: fixed; bottom: 24px; right: 24px; z-index: 2000;
+      display: flex; flex-direction: column; gap: 10px; max-width: 380px;
+    }
+    .toast {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 14px; border-radius: var(--pc-radius-md);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.45); font-size: 0.88rem; font-weight: 500;
+      color: #fff; animation: toastIn 0.2s ease;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .toast mat-icon { font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; }
+    .toast span { flex: 1; line-height: 1.3; }
+    .toast .toast-close { background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer; display: flex; padding: 0; }
+    .toast .toast-close:hover { color: #fff; }
+    .toast .toast-close mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .t-success { background: #065F46; border-color: #10B981; }
+    .t-error { background: #7F1D1D; border-color: #EF4444; }
+    .t-info { background: #1E3A5F; border-color: #3B82F6; }
+    @keyframes toastIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
+    @media (max-width: 600px) { .toast-stack { left: 12px; right: 12px; bottom: 12px; max-width: none; } }
+
+    /* --- Diálogo de confirmación --- */
+    .confirm-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(3px);
+      z-index: 2100; display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .confirm-card {
+      background: var(--pc-bg-sidebar); border: 1px solid var(--pc-border); border-radius: var(--pc-radius-lg);
+      width: 100%; max-width: 420px; padding: 28px 24px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      animation: toastIn 0.18s ease;
+    }
+    .confirm-icon { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 16px; background: rgba(59,130,246,0.15); color: #60A5FA; }
+    .confirm-icon.danger { background: rgba(239,68,68,0.15); color: #F87171; }
+    .confirm-icon mat-icon { font-size: 30px; width: 30px; height: 30px; }
+    .confirm-card h3 { font-family: var(--pc-font-heading); font-size: 1.25rem; margin-bottom: 8px; color: var(--pc-text-primary); }
+    .confirm-card p { color: var(--pc-text-secondary); font-size: 0.92rem; line-height: 1.45; margin-bottom: 22px; }
+    .confirm-actions { display: flex; gap: 12px; justify-content: center; }
+    .cf-cancel, .cf-ok { padding: 10px 20px; border-radius: var(--pc-radius-md); font-weight: 600; cursor: pointer; font-size: 0.92rem; border: 1px solid var(--pc-border); }
+    .cf-cancel { background: rgba(255,255,255,0.05); color: var(--pc-text-primary); }
+    .cf-cancel:hover { background: rgba(255,255,255,0.1); }
+    .cf-ok { background: var(--pc-yellow); color: #1A1A2E; border-color: var(--pc-yellow); }
+    .cf-ok.danger { background: #EF4444; color: #fff; border-color: #EF4444; }
+    .cf-ok:hover { filter: brightness(1.1); }
+
+    /* --- Barra de carga global (carga inicial de datos) --- */
+    .global-loading-bar {
+      position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 3000;
+      background: linear-gradient(90deg, transparent, var(--pc-yellow), transparent);
+      background-size: 40% 100%; background-repeat: no-repeat;
+      animation: loadingSlide 1.1s infinite ease-in-out;
+    }
+    @keyframes loadingSlide {
+      0% { background-position: -40% 0; }
+      100% { background-position: 140% 0; }
+    }
   `],
 })
 export class LayoutComponent {
@@ -609,7 +700,9 @@ export class LayoutComponent {
 
   constructor(
     public auth: AuthService,
-    private dataService: DataService
+    public dataService: DataService,
+    public notify: NotificationService,
+    public confirm: ConfirmService
   ) {}
 
   getRoleLabel(role: string | null): string {

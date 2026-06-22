@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { DataService } from '../../core/services/data.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 import { AppUser, UserRole } from '../../core/models';
 
 @Component({
@@ -234,7 +235,7 @@ export class UsersComponent {
     active: true
   };
 
-  constructor(private dataService: DataService) {}
+  constructor(private dataService: DataService, private confirm: ConfirmService) {}
 
   getRoleLabel(role: string): string {
     const labels: Record<string, string> = {
@@ -299,8 +300,8 @@ export class UsersComponent {
     this.closeModal();
   }
 
-  deleteUser(uid: string) {
-    if (confirm('¿Estás seguro de que deseas eliminar este usuario?')) {
+  async deleteUser(uid: string) {
+    if (await this.confirm.ask('¿Eliminar este usuario?', { confirmText: 'Eliminar' })) {
       this.dataService.deleteUser(uid);
     }
   }

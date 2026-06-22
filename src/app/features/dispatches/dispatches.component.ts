@@ -1,14 +1,16 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { DataService } from '../../core/services/data.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 import { Dispatch, DispatchItem, DispatchItemType } from '../../core/models';
 
 @Component({
   selector: 'app-dispatches',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule, MatIconModule],
   template: `
     <div class="page-container animate-fade-in-up">
@@ -231,7 +233,7 @@ export class DispatchesComponent {
   toast = signal<string | null>(null);
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(private dataService: DataService, public auth: AuthService) {}
+  constructor(private dataService: DataService, public auth: AuthService, private confirm: ConfirmService) {}
 
   openForm() {
     this.locationId = this.locations()[0]?.id ?? '';
@@ -290,8 +292,8 @@ export class DispatchesComponent {
     this.showToast(`Envío registrado a ${loc.name}`);
   }
 
-  remove(d: Dispatch) {
-    if (confirm(`¿Eliminar el envío a ${d.locationName}?`)) {
+  async remove(d: Dispatch) {
+    if (await this.confirm.ask(`¿Eliminar el envío a ${d.locationName}?`, { confirmText: 'Eliminar' })) {
       this.dataService.deleteDispatch(d.id);
     }
   }

@@ -8,4 +8,8 @@ public class Empleado
     public string Rol { get; set; } = string.Empty;
     public string? Telefono { get; set; }
     public bool Estado { get; set; } = true;
+
+    /// <summary>Local "de casa" del empleado (puede cubrir otros locales como extra).</summary>
+    public int? IdLocal { get; set; }
+    public string? LocalNombre { get; set; }
 }

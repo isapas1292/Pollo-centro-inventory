@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PolloCentro.Api.Application.Schedule;
 
@@ -5,6 +6,7 @@ namespace PolloCentro.Api.Api.Controllers;
 
 [ApiController]
 [Route("api/schedules")]
+[Authorize(Roles = "admin")]
 public class ScheduleController : ControllerBase
 {
     private readonly IScheduleService _schedule;
@@ -23,6 +25,15 @@ public class ScheduleController : ControllerBase
     {
         var created = await _schedule.CreateAsync(input, cancellationToken);
         return Created($"/api/schedules/{created.Id}", created);
+    }
+
+    /// <summary>Alta masiva de turnos (con opción de reemplazar la semana). Usado por el horario automático.</summary>
+    [HttpPost("bulk")]
+    public async Task<IActionResult> CreateMany(
+        [FromBody] BulkShiftInput input, CancellationToken cancellationToken)
+    {
+        var count = await _schedule.CreateManyAsync(input, cancellationToken);
+        return Ok(new { success = true, count });
     }
 
     [HttpPut("{id:int}")]

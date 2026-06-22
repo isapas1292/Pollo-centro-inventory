@@ -58,7 +58,7 @@ public class AuthController : ControllerBase
         {
             Path = "/",
             Secure = !_env.IsDevelopment(),
-            SameSite = SameSiteMode.Lax
+            SameSite = SameSiteMode.Strict
         });
         return Ok(new { success = true });
     }
@@ -69,9 +69,10 @@ public class AuthController : ControllerBase
         {
             HttpOnly = true,                       // inaccesible para JavaScript (anti-XSS)
             Secure = !_env.IsDevelopment(),        // solo HTTPS en producción
-            SameSite = SameSiteMode.Lax,           // mitiga CSRF en peticiones de escritura
+            SameSite = SameSiteMode.Strict,
             Path = "/",
-            Expires = DateTimeOffset.UtcNow.AddHours(_expiryHours)
+            Expires = DateTimeOffset.UtcNow.AddHours(_expiryHours),
+            IsEssential = true
         });
     }
 }
