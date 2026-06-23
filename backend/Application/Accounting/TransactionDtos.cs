@@ -18,6 +18,8 @@ public class TransactionDto
     public string? Reference { get; set; }
     public string? Contact { get; set; }
     public string? RecordedBy { get; set; }
+    public string? ImportId { get; set; }
+    public string Source { get; set; } = "manual";
 }
 
 public class TransactionInput

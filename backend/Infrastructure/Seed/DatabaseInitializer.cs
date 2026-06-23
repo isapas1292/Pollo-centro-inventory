@@ -196,7 +196,34 @@ CREATE TABLE dbo.Envios (
     EnviadoPor VARCHAR(150) NULL,
     Nota VARCHAR(500) NULL,
     FechaEnvio DATETIME NOT NULL DEFAULT(getdate())
-);";
+);
+IF OBJECT_ID(N'dbo.ImportacionesCierreCaja', N'U') IS NULL
+CREATE TABLE dbo.ImportacionesCierreCaja (
+    IdImportacionCierre INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    IdLocal INT NOT NULL,
+    LocalCodigo VARCHAR(50) NOT NULL,
+    LocalNombre VARCHAR(150) NOT NULL,
+    NegocioPdf VARCHAR(150) NOT NULL,
+    Caja VARCHAR(80) NULL,
+    Secuencia VARCHAR(50) NOT NULL,
+    FechaInicio DATETIME2 NOT NULL,
+    FechaFin DATETIME2 NOT NULL,
+    VentaNeta DECIMAL(12,2) NOT NULL,
+    Impuesto DECIMAL(12,2) NOT NULL,
+    CargoExtra DECIMAL(12,2) NOT NULL,
+    VentaBruta DECIMAL(12,2) NOT NULL,
+    Propinas DECIMAL(12,2) NOT NULL,
+    TotalPago DECIMAL(12,2) NOT NULL,
+    ConteoOrdenes INT NOT NULL,
+    ConteoClientes INT NOT NULL,
+    PagosJson NVARCHAR(MAX) NOT NULL,
+    ArchivoNombre VARCHAR(255) NOT NULL,
+    ArchivoHash NCHAR(64) NOT NULL,
+    ImportadoPor VARCHAR(150) NULL,
+    FechaImportacion DATETIME2 NOT NULL DEFAULT(sysdatetime())
+);
+IF COL_LENGTH(N'dbo.TransaccionesContables', 'IdImportacionCierre') IS NULL
+    ALTER TABLE dbo.TransaccionesContables ADD IdImportacionCierre INT NULL;";
 
     private static Task EnsureTablesAsync(AppDbContext db, CancellationToken ct)
         => db.Database.ExecuteSqlRawAsync(CreateTablesSql, ct);
@@ -710,6 +737,14 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.Audit
     CREATE INDEX IX_Auditoria_FechaHora ON dbo.Auditoria(FechaHora DESC);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.RegistroPreparaciones') AND name = N'IX_RegistroPreparaciones_Fecha')
     CREATE INDEX IX_RegistroPreparaciones_Fecha ON dbo.RegistroPreparaciones(FechaPreparacion DESC);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.ImportacionesCierreCaja') AND name = N'UX_ImportacionesCierreCaja_ArchivoHash')
+    CREATE UNIQUE INDEX UX_ImportacionesCierreCaja_ArchivoHash ON dbo.ImportacionesCierreCaja(ArchivoHash);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.ImportacionesCierreCaja') AND name = N'IX_ImportacionesCierreCaja_Local_Fecha')
+    CREATE INDEX IX_ImportacionesCierreCaja_Local_Fecha ON dbo.ImportacionesCierreCaja(IdLocal, FechaFin DESC);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.ImportacionesCierreCaja') AND name = N'UX_ImportacionesCierreCaja_Local_Secuencia_Fecha')
+    CREATE UNIQUE INDEX UX_ImportacionesCierreCaja_Local_Secuencia_Fecha ON dbo.ImportacionesCierreCaja(IdLocal, Secuencia, FechaFin);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.TransaccionesContables') AND name = N'IX_Transacciones_IdImportacionCierre')
+    CREATE INDEX IX_Transacciones_IdImportacionCierre ON dbo.TransaccionesContables(IdImportacionCierre) WHERE IdImportacionCierre IS NOT NULL;
 
 IF OBJECT_ID(N'dbo.CK_Inventario_ValoresNoNegativos', N'C') IS NULL
     ALTER TABLE dbo.Inventario WITH CHECK ADD CONSTRAINT CK_Inventario_ValoresNoNegativos CHECK (CantidadDisponible >= 0 AND StockMinimo >= 0 AND CostoUnitario >= 0);
@@ -729,6 +764,11 @@ IF OBJECT_ID(N'dbo.CK_HistorialPrecios_Precio', N'C') IS NULL
     ALTER TABLE dbo.HistorialPrecios WITH CHECK ADD CONSTRAINT CK_HistorialPrecios_Precio CHECK (Precio >= 0);
 IF OBJECT_ID(N'dbo.CK_Envios_ItemsJson', N'C') IS NULL
     ALTER TABLE dbo.Envios WITH CHECK ADD CONSTRAINT CK_Envios_ItemsJson CHECK (ISJSON(ItemsJson) = 1);
+IF OBJECT_ID(N'dbo.CK_ImportacionesCierreCaja_Valores', N'C') IS NULL
+    ALTER TABLE dbo.ImportacionesCierreCaja WITH CHECK ADD CONSTRAINT CK_ImportacionesCierreCaja_Valores CHECK (
+        FechaFin > FechaInicio AND VentaNeta >= 0 AND Impuesto >= 0 AND CargoExtra >= 0
+        AND VentaBruta >= 0 AND Propinas >= 0 AND TotalPago > 0
+        AND ConteoOrdenes >= 0 AND ConteoClientes >= 0 AND ISJSON(PagosJson) = 1);
 
 IF OBJECT_ID(N'dbo.FK_Alertas_Inventario', N'F') IS NULL
     ALTER TABLE dbo.Alertas WITH CHECK ADD CONSTRAINT FK_Alertas_Inventario FOREIGN KEY (IdProducto) REFERENCES dbo.Inventario(IdProducto);
@@ -746,6 +786,10 @@ IF OBJECT_ID(N'dbo.FK_Transacciones_CuentasContables', N'F') IS NULL
     ALTER TABLE dbo.TransaccionesContables WITH CHECK ADD CONSTRAINT FK_Transacciones_CuentasContables FOREIGN KEY (IdCuenta) REFERENCES dbo.CuentasContables(IdCuenta);
 IF OBJECT_ID(N'dbo.FK_RegistroPreparaciones_Recetas', N'F') IS NULL
     ALTER TABLE dbo.RegistroPreparaciones WITH CHECK ADD CONSTRAINT FK_RegistroPreparaciones_Recetas FOREIGN KEY (IdReceta) REFERENCES dbo.Recetas(IdReceta);
+IF OBJECT_ID(N'dbo.FK_ImportacionesCierreCaja_Locales', N'F') IS NULL
+    ALTER TABLE dbo.ImportacionesCierreCaja WITH CHECK ADD CONSTRAINT FK_ImportacionesCierreCaja_Locales FOREIGN KEY (IdLocal) REFERENCES dbo.Locales(IdLocal);
+IF OBJECT_ID(N'dbo.FK_Transacciones_ImportacionesCierreCaja', N'F') IS NULL
+    ALTER TABLE dbo.TransaccionesContables WITH CHECK ADD CONSTRAINT FK_Transacciones_ImportacionesCierreCaja FOREIGN KEY (IdImportacionCierre) REFERENCES dbo.ImportacionesCierreCaja(IdImportacionCierre);
 ";
 
     private static Task EnsureDatabaseOptimizationsAsync(AppDbContext db, CancellationToken ct)

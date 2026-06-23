@@ -15,9 +15,14 @@ import { AccountingService } from '../../core/services/accounting.service';
           <h1><mat-icon class="header-icon">account_balance</mat-icon> Contabilidad</h1>
           <p>Resumen financiero y Estado de Resultados — Pollo Centro</p>
         </div>
-        <a class="btn-primary" routerLink="/contabilidad/transacciones">
-          <mat-icon>add</mat-icon> Nueva Transacción
-        </a>
+        <div class="header-actions">
+          <a class="btn-import" routerLink="/contabilidad/importar-cierre">
+            <mat-icon>upload_file</mat-icon> Importar cierre
+          </a>
+          <a class="btn-primary" routerLink="/contabilidad/transacciones">
+            <mat-icon>add</mat-icon> Nueva Transacción
+          </a>
+        </div>
       </div>
 
       <!-- Selector de local + exportación -->
@@ -178,6 +183,9 @@ import { AccountingService } from '../../core/services/accounting.service';
     .header-text h1 { font-family: var(--pc-font-heading); font-size: 1.8rem; margin-bottom: 4px; display: flex; align-items: center; gap: 10px; }
     .header-icon { font-size: 28px; width: 28px; height: 28px; color: var(--pc-yellow); }
     .header-text p { color: var(--pc-text-muted); font-size: 0.9rem; }
+    .header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .btn-import { color: var(--pc-text-primary); border: 1px solid var(--pc-border); padding: 9px 15px; border-radius: 6px; font-weight: 600; display: flex; align-items: center; gap: 7px; text-decoration: none; }
+    .btn-import:hover { color: var(--pc-yellow); border-color: var(--pc-yellow); }
     .btn-primary { background: var(--pc-yellow); color: #1A1A2E; border: none; padding: 10px 20px; border-radius: var(--pc-radius-md); font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; text-decoration: none; transition: all 0.2s; }
     .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(242, 201, 76, 0.2); }
 

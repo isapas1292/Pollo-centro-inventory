@@ -11,6 +11,7 @@ public static class Locales
         ("loc-union", "Pollo Centro - S. Union"),
         ("loc-broadway", "Pollo Centro - Broadway"),
         ("loc-haverhill", "Pollo Centro - Haverhill"),
+        ("loc-lawrence", "Pollo Centro - Lawrence"),
         ("loc-lynn", "Pollo Centro - Lynn"),
         ("loc-prep", "Pollo Centro - Prep"),
         ("loc-worcester", "Pollo Centro - Worcester"),

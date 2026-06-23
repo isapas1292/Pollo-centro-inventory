@@ -1,7 +1,7 @@
 import { Injectable, signal, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { Account, Transaction, AccountingSummary } from '../models';
+import { Account, Transaction, AccountingSummary, CashClosingPreview, CashClosingImportResult, CashClosingImportRecord } from '../models';
 import { DataService } from './data.service';
 import { environment } from '../../../environments/environment';
 
@@ -143,5 +143,26 @@ export class AccountingService {
       await firstValueFrom(this.http.delete(`${this.api}/accounts/${id}`));
       await this.reloadAccounts();
     } catch (e) { console.error('deleteAccount', e); }
+  }
+
+  async previewCashClosing(file: File): Promise<CashClosingPreview> {
+    const form = new FormData();
+    form.append('file', file);
+    return firstValueFrom(this.http.post<CashClosingPreview>(`${this.api}/closing-imports/preview`, form));
+  }
+
+  async importCashClosing(file: File, localId: string): Promise<CashClosingImportResult> {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('localId', localId);
+    const result = await firstValueFrom(
+      this.http.post<CashClosingImportResult>(`${this.api}/closing-imports`, form)
+    );
+    await Promise.all([this.reloadTransactions(), this.reloadSummary()]);
+    return result;
+  }
+
+  getClosingImports(): Promise<CashClosingImportRecord[]> {
+    return firstValueFrom(this.http.get<CashClosingImportRecord[]>(`${this.api}/closing-imports`));
   }
 }

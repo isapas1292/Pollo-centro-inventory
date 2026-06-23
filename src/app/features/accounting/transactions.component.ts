@@ -65,7 +65,10 @@ import { Transaction, TransactionType, PAYMENT_METHODS } from '../../core/models
                   <td>{{ t.date | date:'dd/MM/yyyy' }}</td>
                   <td class="muted">{{ t.localName }}</td>
                   <td>{{ t.accountName }}</td>
-                  <td class="muted">{{ t.description }}<span *ngIf="t.contact"> · {{ t.contact }}</span></td>
+                  <td class="muted">
+                    {{ t.description }}<span *ngIf="t.contact"> · {{ t.contact }}</span>
+                    @if (t.source === 'cierre-pdf') { <span class="source-badge"><mat-icon>picture_as_pdf</mat-icon>Cierre PDF</span> }
+                  </td>
                   <td class="muted">{{ t.paymentMethod }}</td>
                   <td>
                     <span class="pill" [class.pill-in]="t.type === 'ingreso'" [class.pill-out]="t.type === 'gasto'">
@@ -76,8 +79,12 @@ import { Transaction, TransactionType, PAYMENT_METHODS } from '../../core/models
                     {{ t.type === 'gasto' ? '-' : '+' }}$ {{ t.amount | number:'1.2-2' }}
                   </td>
                   <td class="right">
-                    <button class="icon-btn edit-btn" (click)="openModal(t)"><mat-icon>edit</mat-icon></button>
-                    <button class="icon-btn delete-btn" (click)="remove(t)"><mat-icon>delete</mat-icon></button>
+                    @if (t.source !== 'cierre-pdf') {
+                      <button class="icon-btn edit-btn" (click)="openModal(t)" title="Editar"><mat-icon>edit</mat-icon></button>
+                      <button class="icon-btn delete-btn" (click)="remove(t)" title="Eliminar"><mat-icon>delete</mat-icon></button>
+                    } @else {
+                      <mat-icon class="locked" title="Gestionado por el cierre importado">lock</mat-icon>
+                    }
                   </td>
                 </tr>
               } @empty {
@@ -212,6 +219,9 @@ import { Transaction, TransactionType, PAYMENT_METHODS } from '../../core/models
     .icon-btn mat-icon { font-size: 18px; width: 18px; height: 18px; }
     .edit-btn:hover { color: var(--pc-yellow); }
     .delete-btn:hover { color: #EF4444; }
+    .source-badge { display: inline-flex; align-items: center; gap: 3px; margin-left: 7px; padding: 2px 6px; border-radius: 4px; background: rgba(248,113,113,.1); color: #fca5a5; font-size: .65rem; white-space: nowrap; }
+    .source-badge mat-icon { font-size: 13px; width: 13px; height: 13px; }
+    .locked { color: var(--pc-text-muted); font-size: 17px; width: 17px; height: 17px; }
     .empty { text-align: center; color: var(--pc-text-muted); padding: 40px; }
 
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; }

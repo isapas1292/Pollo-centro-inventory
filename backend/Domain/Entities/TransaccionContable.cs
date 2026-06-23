@@ -7,6 +7,7 @@ namespace PolloCentro.Api.Domain.Entities;
 public class TransaccionContable
 {
     public int IdTransaccion { get; set; }
+    public int? IdImportacionCierre { get; set; }
     public DateTime Fecha { get; set; }
 
     /// <summary>Tipo de movimiento: "ingreso" o "gasto".</summary>
@@ -32,4 +33,6 @@ public class TransaccionContable
 
     public string? RegistradoPor { get; set; }
     public DateTime FechaRegistro { get; set; }
+
+    public ImportacionCierreCaja? ImportacionCierre { get; set; }
 }

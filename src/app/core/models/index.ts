@@ -195,6 +195,59 @@ export interface Transaction {
   reference?: string;
   contact?: string;
   recordedBy?: string;
+  importId?: string;
+  source?: 'manual' | 'cierre-pdf';
+}
+
+export interface CashClosingPayment {
+  name: string;
+  method: string;
+  count: number;
+  amount: number;
+}
+
+export interface CashClosingPreview {
+  fileName: string;
+  fileHash: string;
+  businessName: string;
+  machine?: string;
+  sequence: string;
+  cashier?: string;
+  startDate: string;
+  endDate: string;
+  netSales: number;
+  tax: number;
+  extraFee: number;
+  grossSales: number;
+  tips: number;
+  totalPayment: number;
+  orderCount: number;
+  guestCount: number;
+  suggestedLocalId?: string;
+  alreadyImported: boolean;
+  payments: CashClosingPayment[];
+}
+
+export interface CashClosingImportResult {
+  importId: string;
+  localId: string;
+  localName: string;
+  closingDate: string;
+  totalPayment: number;
+  transactionsCreated: number;
+}
+
+export interface CashClosingImportRecord {
+  id: string;
+  fileName: string;
+  localId: string;
+  localName: string;
+  sequence: string;
+  closingDate: string;
+  totalPayment: number;
+  transactionCount: number;
+  importedBy: string;
+  importedAt: string;
 }
 
 export interface CategoryAmount {

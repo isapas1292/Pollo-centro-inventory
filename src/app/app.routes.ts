@@ -93,6 +93,7 @@ export const routes: Routes = [
           { path: '', redirectTo: 'resumen', pathMatch: 'full' },
           { path: 'resumen', loadComponent: () => import('./features/accounting/accounting-dashboard.component').then(m => m.AccountingDashboardComponent) },
           { path: 'transacciones', loadComponent: () => import('./features/accounting/transactions.component').then(m => m.TransactionsComponent) },
+          { path: 'importar-cierre', loadComponent: () => import('./features/accounting/cash-close-import.component').then(m => m.CashCloseImportComponent) },
           { path: 'cuentas', loadComponent: () => import('./features/accounting/accounts.component').then(m => m.AccountsComponent) }
         ]
       }

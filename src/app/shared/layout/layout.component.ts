@@ -682,6 +682,7 @@ export class LayoutComponent {
       children: [
         { icon: 'summarize', label: 'Resumen / P&L', route: '/contabilidad/resumen', permission: 'accounting.view' },
         { icon: 'receipt_long', label: 'Transacciones', route: '/contabilidad/transacciones', permission: 'accounting.view' },
+        { icon: 'upload_file', label: 'Importar Cierre', route: '/contabilidad/importar-cierre', permission: 'accounting.edit' },
         { icon: 'account_tree', label: 'Plan de Cuentas', route: '/contabilidad/cuentas', permission: 'accounting.view' }
       ]
     },

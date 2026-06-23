@@ -26,6 +26,7 @@ public interface IApplicationDbContext
     DbSet<EnvioLocal> Envios { get; }
     DbSet<CuentaContable> CuentasContables { get; }
     DbSet<TransaccionContable> TransaccionesContables { get; }
+    DbSet<ImportacionCierreCaja> ImportacionesCierreCaja { get; }
     DbSet<Local> Locales { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

@@ -54,7 +54,9 @@ public class TransactionService : ITransactionService
                 PaymentMethod = t.MetodoPago,
                 Reference = t.Referencia,
                 Contact = t.Contacto,
-                RecordedBy = t.RegistradoPor
+                RecordedBy = t.RegistradoPor,
+                ImportId = t.IdImportacionCierre == null ? null : t.IdImportacionCierre.ToString(),
+                Source = t.IdImportacionCierre == null ? "manual" : "cierre-pdf"
             };
         return await query.ToListAsync(cancellationToken);
     }
@@ -90,6 +92,8 @@ public class TransactionService : ITransactionService
     {
         var tx = await _db.TransaccionesContables.FirstOrDefaultAsync(t => t.IdTransaccion == id, cancellationToken)
             ?? throw new NotFoundException("Transacción", id);
+        if (tx.IdImportacionCierre.HasValue)
+            throw new ValidationException("Las transacciones de un cierre PDF no se editan individualmente.");
 
         var cuenta = await ResolveAccountAsync(input.AccountId, cancellationToken);
         await EnsureUniqueReferenceAsync(input.Reference, id, cancellationToken);
@@ -114,6 +118,8 @@ public class TransactionService : ITransactionService
     {
         var tx = await _db.TransaccionesContables.FirstOrDefaultAsync(t => t.IdTransaccion == id, cancellationToken)
             ?? throw new NotFoundException("Transacción", id);
+        if (tx.IdImportacionCierre.HasValue)
+            throw new ValidationException("Las transacciones de un cierre PDF no se eliminan individualmente.");
 
         _db.TransaccionesContables.Remove(tx);
         await _db.SaveChangesAsync(cancellationToken);
@@ -424,6 +430,8 @@ public class TransactionService : ITransactionService
         PaymentMethod = t.MetodoPago,
         Reference = t.Referencia,
         Contact = t.Contacto,
-        RecordedBy = t.RegistradoPor
+        RecordedBy = t.RegistradoPor,
+        ImportId = t.IdImportacionCierre?.ToString(),
+        Source = t.IdImportacionCierre.HasValue ? "cierre-pdf" : "manual"
     };
 }

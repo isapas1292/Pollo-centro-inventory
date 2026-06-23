@@ -24,6 +24,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<EnvioLocal> Envios => Set<EnvioLocal>();
     public DbSet<CuentaContable> CuentasContables => Set<CuentaContable>();
     public DbSet<TransaccionContable> TransaccionesContables => Set<TransaccionContable>();
+    public DbSet<ImportacionCierreCaja> ImportacionesCierreCaja => Set<ImportacionCierreCaja>();
     public DbSet<Local> Locales => Set<Local>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
