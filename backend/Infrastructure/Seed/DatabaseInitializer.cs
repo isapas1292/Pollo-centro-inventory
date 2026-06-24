@@ -186,6 +186,17 @@ CREATE TABLE dbo.Locales (
     Direccion VARCHAR(255) NULL,
     Estado BIT NOT NULL DEFAULT(1)
 );
+IF OBJECT_ID(N'dbo.InventarioLocal', N'U') IS NULL
+CREATE TABLE dbo.InventarioLocal (
+    IdInventarioLocal INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    IdLocal VARCHAR(50) NOT NULL,
+    LocalNombre VARCHAR(150) NULL,
+    IdProducto INT NOT NULL,
+    Cantidad DECIMAL(10,2) NOT NULL DEFAULT(0),
+    StockMinimo DECIMAL(10,2) NOT NULL DEFAULT(0),
+    FechaActualizacion DATETIME NOT NULL DEFAULT(getdate()),
+    CONSTRAINT UQ_InventarioLocal UNIQUE (IdLocal, IdProducto)
+);
 IF OBJECT_ID(N'dbo.Envios', N'U') IS NULL
 CREATE TABLE dbo.Envios (
     IdEnvio INT IDENTITY(1,1) NOT NULL PRIMARY KEY,

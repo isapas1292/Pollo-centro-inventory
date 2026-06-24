@@ -53,6 +53,10 @@ export class DataService {
   readonly dispatches = this._dispatches.asReadonly();
   readonly locations = this._locations.asReadonly();
 
+  // Inventario del local actualmente consultado (se carga bajo demanda).
+  private _localInventory = signal<Product[]>([]);
+  readonly localInventory = this._localInventory.asReadonly();
+
   // Indicador de carga inicial (para spinners/barras de progreso globales).
   private _loading = signal(true);
   readonly loading = this._loading.asReadonly();
@@ -96,6 +100,8 @@ export class DataService {
   }
 
   private async reloadProducts() { this._products.set(await this.getList<Product>('inventory')); }
+  /** Carga el inventario propio de un local (por código, p. ej. "loc-broadway"). */
+  async loadLocalInventory(locationCode: string) { this._localInventory.set(await this.getList<Product>('inventory/local/' + locationCode)); }
   private async reloadRecipes() { this._recipes.set(await this.getList<Recipe>('recipes')); }
   private async reloadRecipeLogs() { this._recipeLogs.set(await this.getList<RecipeLog>('recipes/logs')); }
   private async reloadPrices() { this._priceHistory.set(await this.getList<PriceRecord>('prices')); }
@@ -604,7 +610,12 @@ export class DataService {
   deleteDispatch(id: string): void {
     this._dispatches.update(list => list.filter(d => d.id !== id));
     if (this.isServerId(id)) {
-      this.del('dispatches/' + id).then(() => this.reloadDispatches()).catch(e => console.error('deleteDispatch', e));
+      // Anular un envío devuelve el stock al almacén (y descuenta del local) en el backend.
+      this.del('dispatches/' + id).then(() => {
+        this.reloadDispatches();
+        this.reloadProducts();
+        this.reloadRecipes();
+      }).catch(e => console.error('deleteDispatch', e));
     }
   }
 

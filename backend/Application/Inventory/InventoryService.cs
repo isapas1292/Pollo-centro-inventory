@@ -39,6 +39,29 @@ public class InventoryService : IInventoryService
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<ProductDto>> GetByLocationAsync(string locationCode, CancellationToken cancellationToken = default)
+    {
+        return await _db.InventariosLocales
+            .AsNoTracking()
+            .Where(il => il.IdLocal == locationCode)
+            .Join(_db.Productos, il => il.IdProducto, p => p.IdProducto, (il, p) => new { il, p })
+            .OrderBy(x => x.p.NombreProducto)
+            .Select(x => new ProductDto
+            {
+                Id = x.p.IdProducto.ToString(),
+                Name = x.p.NombreProducto,
+                Category = string.IsNullOrEmpty(x.p.Categoria) ? "Otro" : x.p.Categoria,
+                CurrentStock = x.il.Cantidad,
+                Unit = string.IsNullOrEmpty(x.p.UnidadMedida) ? "unidad" : x.p.UnidadMedida.ToLower(),
+                MinStock = x.il.StockMinimo,
+                CurrentPrice = x.p.CostoUnitario,
+                SupplierId = null,
+                SupplierName = null,
+                LastUpdated = x.il.FechaActualizacion
+            })
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<ProductDto> CreateAsync(ProductInput input, CancellationToken cancellationToken = default)
     {
         var supplierId = await ResolveSupplierIdAsync(input.SupplierId, cancellationToken);

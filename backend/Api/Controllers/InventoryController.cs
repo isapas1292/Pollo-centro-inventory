@@ -13,10 +13,16 @@ public class InventoryController : ControllerBase
 
     public InventoryController(IInventoryService inventory) => _inventory = inventory;
 
-    /// <summary>Devuelve todos los productos del inventario con su proveedor.</summary>
+    /// <summary>Devuelve el inventario del almacén (todos los productos con su proveedor).</summary>
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<ProductDto>>> GetAll(CancellationToken cancellationToken)
         => Ok(await _inventory.GetProductsAsync(cancellationToken));
+
+    /// <summary>Inventario propio de un local (por su código, p. ej. "loc-broadway").</summary>
+    [HttpGet("local/{locationCode}")]
+    public async Task<ActionResult<IReadOnlyList<ProductDto>>> GetByLocation(
+        string locationCode, CancellationToken cancellationToken)
+        => Ok(await _inventory.GetByLocationAsync(locationCode, cancellationToken));
 
     [HttpPost]
     public async Task<ActionResult<ProductDto>> Create(

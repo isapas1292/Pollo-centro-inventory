@@ -67,6 +67,13 @@ public class DispatchService : IDispatchService
             : await _db.Recetas.Where(r => recipeIds.Contains(r.IdReceta))
                 .ToDictionaryAsync(r => r.IdReceta, cancellationToken);
 
+        // Stock del local destino para los ingredientes (se suma a su inventario propio).
+        var localStocks = prodIds.Count == 0
+            ? new Dictionary<int, InventarioLocal>()
+            : await _db.InventariosLocales
+                .Where(il => il.IdLocal == local.Codigo && prodIds.Contains(il.IdProducto))
+                .ToDictionaryAsync(il => il.IdProducto, cancellationToken);
+
         foreach (var item in items)
         {
             if (item.Type == "receta" && int.TryParse(item.RefId, out var rid))
@@ -92,6 +99,27 @@ public class DispatchService : IDispatchService
                 item.Name = product.NombreProducto;
                 item.Unit = product.UnidadMedida;
                 total += item.Quantity * product.CostoUnitario;
+
+                // Suma al inventario propio del local destino (lo crea si no existía).
+                if (localStocks.TryGetValue(pid, out var ls))
+                {
+                    ls.Cantidad += item.Quantity;
+                    ls.FechaActualizacion = DateTime.Now;
+                }
+                else
+                {
+                    var nuevo = new InventarioLocal
+                    {
+                        IdLocal = local.Codigo,
+                        LocalNombre = local.Nombre,
+                        IdProducto = pid,
+                        Cantidad = item.Quantity,
+                        StockMinimo = 0,
+                        FechaActualizacion = DateTime.Now
+                    };
+                    localStocks[pid] = nuevo;
+                    _db.InventariosLocales.Add(nuevo);
+                }
             }
             else
                 throw new ValidationException("El artículo del envío contiene una referencia inválida.");
@@ -177,6 +205,51 @@ public class DispatchService : IDispatchService
     {
         var envio = await _db.Envios.FirstOrDefaultAsync(e => e.IdEnvio == id, cancellationToken)
             ?? throw new NotFoundException("Envío", id);
+
+        // Anular un envío DEVUELVE el stock: el almacén recupera lo enviado, el local lo
+        // descuenta de su inventario y las recetas recuperan su stock preparado.
+        List<DispatchItemDto> items;
+        try { items = JsonSerializer.Deserialize<List<DispatchItemDto>>(envio.ItemsJson) ?? new(); }
+        catch { items = new(); }
+
+        var local = await _db.Locales.FirstOrDefaultAsync(l => l.IdLocal == envio.IdLocal, cancellationToken);
+        var localCode = local?.Codigo;
+
+        var prodIds = items.Where(i => i.Type == "ingrediente" && int.TryParse(i.RefId, out _))
+            .Select(i => int.Parse(i.RefId)).Distinct().ToList();
+        var recipeIds = items.Where(i => i.Type == "receta" && int.TryParse(i.RefId, out _))
+            .Select(i => int.Parse(i.RefId)).Distinct().ToList();
+
+        var products = prodIds.Count == 0 ? new Dictionary<int, Producto>()
+            : await _db.Productos.Where(p => prodIds.Contains(p.IdProducto)).ToDictionaryAsync(p => p.IdProducto, cancellationToken);
+        var recipes = recipeIds.Count == 0 ? new Dictionary<int, Receta>()
+            : await _db.Recetas.Where(r => recipeIds.Contains(r.IdReceta)).ToDictionaryAsync(r => r.IdReceta, cancellationToken);
+        var localStocks = (localCode == null || prodIds.Count == 0) ? new Dictionary<int, InventarioLocal>()
+            : await _db.InventariosLocales.Where(il => il.IdLocal == localCode && prodIds.Contains(il.IdProducto))
+                .ToDictionaryAsync(il => il.IdProducto, cancellationToken);
+
+        foreach (var item in items)
+        {
+            if (item.Type == "ingrediente" && int.TryParse(item.RefId, out var pid))
+            {
+                if (products.TryGetValue(pid, out var prod))
+                {
+                    prod.CantidadDisponible += item.Quantity;   // devuelve al almacén
+                    prod.FechaRegistro = DateTime.Now;
+                }
+                if (localStocks.TryGetValue(pid, out var ls))   // descuenta del local
+                {
+                    var restante = ls.Cantidad - item.Quantity;
+                    if (restante <= 0) _db.InventariosLocales.Remove(ls);
+                    else { ls.Cantidad = restante; ls.FechaActualizacion = DateTime.Now; }
+                }
+            }
+            else if (item.Type == "receta" && int.TryParse(item.RefId, out var rid))
+            {
+                if (recipes.TryGetValue(rid, out var rec)) rec.StockPreparado += item.Quantity;
+            }
+        }
+
         _db.Envios.Remove(envio);
 
         // Elimina también la transacción contable asociada al envío.

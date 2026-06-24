@@ -34,10 +34,12 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
       <!-- Page Header -->
       <div class="page-header">
         <div class="header-text">
-          <h1>Inventario</h1>
-          <p>Gestiona todos los productos y materiales de tu inventario</p>
+          <h1>{{ viewingLocal() ? 'Inventario: ' + currentLocationName() : 'Inventario del Almacén' }}</h1>
+          <p>{{ viewingLocal()
+                ? 'Stock recibido en este local (se actualiza con los envíos del almacén)'
+                : 'Gestiona los productos y materiales del almacén principal' }}</p>
         </div>
-        @if (auth.hasPermission('inventory.create')) {
+        @if (!viewingLocal() && auth.hasPermission('inventory.create')) {
           <button class="btn-add" (click)="openAddModal()" id="btn-add-product">
             <mat-icon>add</mat-icon>
             Nuevo Producto
@@ -86,27 +88,43 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
             <span class="alert-text"><mat-icon>help</mat-icon> Stock Bajo: {{ lowStockCount() }}</span>
           </div>
           <div class="dropdowns-group">
-            <select class="custom-select" [ngModel]="selectedCategory()" (ngModelChange)="selectedCategory.set($event)">
-              <option value="all">Todas las Categorías</option>
-              @for (cat of uniqueCategories(); track cat) {
-                <option [value]="cat">{{ cat }}</option>
-              }
-            </select>
-            
-            <select class="custom-select" [ngModel]="selectedLocation()" (ngModelChange)="selectedLocation.set($event)">
-              <option value="all">Select Location</option>
+            <select class="custom-select loc-select" [ngModel]="selectedLocation()" (ngModelChange)="onLocationChange($event)">
+              <option value="all">🏭 Almacén (principal)</option>
               @for (loc of dataService.locations(); track loc.id) {
-                <option [value]="loc.id">{{ loc.name }}</option>
+                <option [value]="loc.id">🏬 {{ loc.name }}</option>
               }
             </select>
 
+            <select class="custom-select" [ngModel]="selectedCategory()" (ngModelChange)="selectedCategory.set($event)">
+              <option value="all">Todas las categorías</option>
+              <optgroup label="🍗 Comida">
+                @for (cat of categoriesByGroup().Comida; track cat) { <option [value]="cat">{{ cat }}</option> }
+              </optgroup>
+              <optgroup label="🧹 Utilidades">
+                @for (cat of categoriesByGroup().Utilidades; track cat) { <option [value]="cat">{{ cat }}</option> }
+              </optgroup>
+            </select>
+
             <select class="custom-select" [ngModel]="selectedVendor()" (ngModelChange)="selectedVendor.set($event)">
-              <option value="all">Select Vendor</option>
+              <option value="all">Todos los proveedores</option>
               @for (sup of dataService.suppliers(); track sup.id) {
                 <option [value]="sup.id">{{ sup.name }}</option>
               }
             </select>
           </div>
+        </div>
+
+        <!-- Pills de tipo: organiza el inventario entre comida y utilidades -->
+        <div class="group-pills mt-3">
+          <button class="grp-pill" [class.active]="selectedGroup() === 'all'" (click)="selectedGroup.set('all')">
+            Todo <span class="grp-count">{{ totalProducts() }}</span>
+          </button>
+          <button class="grp-pill" [class.active]="selectedGroup() === 'Comida'" (click)="selectedGroup.set('Comida')">
+            🍗 Comida <span class="grp-count">{{ comidaCount() }}</span>
+          </button>
+          <button class="grp-pill" [class.active]="selectedGroup() === 'Utilidades'" (click)="selectedGroup.set('Utilidades')">
+            🧹 Utilidades <span class="grp-count">{{ utilidadesCount() }}</span>
+          </button>
         </div>
 
         <div class="search-wrap mt-3">
@@ -135,9 +153,9 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
         </div>
         @if (filteredProducts().length === 0) {
           <div class="empty-state">
-            <mat-icon>search_off</mat-icon>
-            <p>No se encontraron productos</p>
-            <span>Intenta cambiar los filtros de búsqueda</span>
+            <mat-icon>{{ viewingLocal() ? 'storefront' : 'search_off' }}</mat-icon>
+            <p>{{ viewingLocal() ? 'Este local aún no tiene inventario' : 'No se encontraron productos' }}</p>
+            <span>{{ viewingLocal() ? 'Su inventario se llena con los envíos desde el almacén' : 'Intenta cambiar los filtros de búsqueda' }}</span>
           </div>
         } @else {
           @for (product of paginatedProducts(); track product.id) {
@@ -145,7 +163,7 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
                  [class.row-warning]="product.currentStock > product.minStock * 0.5 && product.currentStock <= product.minStock">
               <span class="td td-name">
                 <div class="product-name-wrap">
-                  <span class="product-name">{{ product.name }}</span>
+                  <span class="product-name">{{ prettyName(product.name) }}</span>
                 </div>
               </span>
               <span class="td td-category">
@@ -182,18 +200,22 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
               <span class="td td-price">\${{ product.currentPrice.toFixed(2) }}</span>
               <span class="td td-updated">{{ formatDate(product.lastUpdated) }}</span>
               <span class="td td-actions">
-                @if (auth.hasPermission('inventory.edit')) {
-                  <button class="action-btn restock-btn" (click)="openRestockModal(product)" matTooltip="Introducir stock">
-                    <mat-icon>add_box</mat-icon>
-                  </button>
-                  <button class="action-btn edit-btn" (click)="openEditModal(product)" matTooltip="Editar">
-                    <mat-icon>edit</mat-icon>
-                  </button>
-                }
-                @if (auth.hasPermission('inventory.delete')) {
-                  <button class="action-btn delete-btn" (click)="openDeleteModal(product)" matTooltip="Eliminar">
-                    <mat-icon>delete</mat-icon>
-                  </button>
+                @if (viewingLocal()) {
+                  <span class="readonly-hint">—</span>
+                } @else {
+                  @if (auth.hasPermission('inventory.edit')) {
+                    <button class="action-btn restock-btn" (click)="openRestockModal(product)" matTooltip="Introducir stock">
+                      <mat-icon>add_box</mat-icon>
+                    </button>
+                    <button class="action-btn edit-btn" (click)="openEditModal(product)" matTooltip="Editar">
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                  }
+                  @if (auth.hasPermission('inventory.delete')) {
+                    <button class="action-btn delete-btn" (click)="openDeleteModal(product)" matTooltip="Eliminar">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  }
                 }
               </span>
             </div>
@@ -526,14 +548,27 @@ import { Product, ProductCategory, ProductUnit, CATEGORY_LABELS, UNIT_LABELS, Su
       border-color: var(--pc-yellow);
     }
     
-    .custom-select option {
+    .custom-select option, .custom-select optgroup {
       background: var(--pc-bg-sidebar);
       color: white;
     }
 
+    .group-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+    .grp-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,0.04); border: 1px solid var(--pc-border);
+      color: var(--pc-text-secondary); padding: 7px 14px; border-radius: 20px;
+      font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all var(--pc-transition-fast);
+    }
+    .grp-pill:hover { background: rgba(255,255,255,0.08); color: var(--pc-text-primary); }
+    .grp-pill.active { background: var(--pc-yellow); color: #1A1A2E; border-color: var(--pc-yellow); }
+    .grp-count { background: rgba(0,0,0,0.18); border-radius: 10px; padding: 1px 8px; font-size: 0.75rem; }
+    .grp-pill.active .grp-count { background: rgba(0,0,0,0.15); }
+
     .search-wrap {
       position: relative;
       max-width: 400px;
+      margin-top: 18px;
     }
 
     .search-icon {
@@ -1115,12 +1150,65 @@ export class InventoryComponent {
   selectedLocation = signal<string>('all');
   selectedVendor = signal<string>('all');
   selectedStatus = signal<string>('all'); // Keeping this internal or accessible if needed
+  selectedGroup = signal<'all' | 'Comida' | 'Utilidades'>('all');
   currentPage = signal(1);
   readonly pageSize = 10;
 
+  // Agrupación de categorías en dos grandes tipos para organizar el inventario.
+  private readonly categoryGroups: Record<string, 'Comida' | 'Utilidades'> = {
+    'Pollo y Aves': 'Comida', 'Carnes y Embutidos': 'Comida', 'Vegetales y Víveres': 'Comida',
+    'Condimentos y Salsas': 'Comida', 'Congelados y Picaderas': 'Comida', 'Granos, Secos y Enlatados': 'Comida',
+    'Aceites y Grasas': 'Comida', 'Lácteos': 'Comida', 'Bebidas': 'Comida', 'Hielo': 'Comida',
+    'Desechables y Empaques': 'Utilidades', 'Utensilios y Equipos': 'Utilidades',
+    'Suministros de Operación': 'Utilidades', 'Limpieza y Químicos': 'Utilidades',
+  };
+
+  /** Grupo (Comida/Utilidades) de una categoría; por defecto Utilidades si no está mapeada. */
+  groupOf(category: string): 'Comida' | 'Utilidades' {
+    return this.categoryGroups[category] ?? 'Utilidades';
+  }
+
+  /** Cambia entre el almacén y un local; carga el inventario del local bajo demanda. */
+  onLocationChange(loc: string) {
+    this.selectedLocation.set(loc);
+    if (loc !== 'all') this.dataService.loadLocalInventory(loc);
+  }
+
+  /** Normaliza nombres TODO-EN-MAYÚSCULA a Capitalización tipo título (español). */
+  prettyName(name: string): string {
+    if (!name) return '';
+    const minor = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'y', 'e', 'o', 'u', 'en', 'con', 'para', 'a', 'al', 'por']);
+    return name.toLowerCase().split(/\s+/).map((word, i) => {
+      if (/\d/.test(word)) return word.toUpperCase();          // códigos/medidas: 40LB, 16OZ
+      if (i > 0 && minor.has(word)) return word;               // artículos/preposiciones en minúscula
+      // Capitaliza la primera letra aunque el token empiece por símbolo (ej. "(galon" → "(Galon").
+      return word.replace(/[a-záéíóúñ]/i, c => c.toUpperCase());
+    }).join(' ');
+  }
+
+  // Fuente de datos según el local seleccionado: 'all' = almacén; si no, el inventario del local.
+  viewingLocal = computed(() => this.selectedLocation() !== 'all');
+  sourceProducts = computed(() => this.viewingLocal() ? this.dataService.localInventory() : this.dataService.products());
+  currentLocationName = computed(() => {
+    const id = this.selectedLocation();
+    return this.dataService.locations().find(l => l.id === id)?.name ?? '';
+  });
+
+  comidaCount = computed(() => this.sourceProducts().filter(p => this.groupOf(p.category) === 'Comida').length);
+  utilidadesCount = computed(() => this.sourceProducts().filter(p => this.groupOf(p.category) === 'Utilidades').length);
+
   uniqueCategories = computed(() => {
-    const cats = new Set(this.dataService.products().map(p => p.category));
+    const cats = new Set(this.sourceProducts().map(p => p.category));
     return Array.from(cats).sort();
+  });
+
+  /** Categorías agrupadas por tipo, para el desplegable con optgroups. */
+  categoriesByGroup = computed(() => {
+    const cats = this.uniqueCategories();
+    return {
+      Comida: cats.filter(c => this.groupOf(c) === 'Comida'),
+      Utilidades: cats.filter(c => this.groupOf(c) === 'Utilidades'),
+    };
   });
 
   stockStatuses = [
@@ -1130,20 +1218,24 @@ export class InventoryComponent {
     { value: 'critical', label: '🔴 Crítico' },
   ];
 
-  // --- Computed stats ---
-  totalProducts = computed(() => this.dataService.products().length);
-  stockOkCount = computed(() => this.dataService.products().filter(p => p.currentStock > p.minStock).length);
-  lowStockCount = computed(() => this.dataService.products().filter(p => p.currentStock <= p.minStock).length);
-  totalValue = computed(() => this.dataService.products().reduce((sum, p) => sum + p.currentStock * p.currentPrice, 0));
+  // --- Computed stats (reflejan el inventario actual: almacén o local) ---
+  totalProducts = computed(() => this.sourceProducts().length);
+  stockOkCount = computed(() => this.sourceProducts().filter(p => p.currentStock > p.minStock).length);
+  lowStockCount = computed(() => this.sourceProducts().filter(p => p.currentStock <= p.minStock).length);
+  totalValue = computed(() => this.sourceProducts().reduce((sum, p) => sum + p.currentStock * p.currentPrice, 0));
 
   // --- Filtered products ---
   filteredProducts = computed(() => {
-    let products = this.dataService.products();
+    let products = this.sourceProducts();
     const query = this.searchQuery().toLowerCase();
     const cat = this.selectedCategory();
     const vendor = this.selectedVendor();
     const status = this.selectedStatus();
+    const group = this.selectedGroup();
 
+    if (group !== 'all') {
+      products = products.filter(p => this.groupOf(p.category) === group);
+    }
     if (query) {
       products = products.filter(p => p.name.toLowerCase().includes(query));
     }
@@ -1161,7 +1253,11 @@ export class InventoryComponent {
       products = products.filter(p => p.currentStock <= p.minStock * 0.5);
     }
 
-    return products;
+    // Orden organizado: por categoría y luego por nombre.
+    return [...products].sort((a, b) =>
+      a.category === b.category
+        ? a.name.localeCompare(b.name)
+        : a.category.localeCompare(b.category));
   });
 
   // Reset page when filters change
@@ -1171,6 +1267,7 @@ export class InventoryComponent {
     this.selectedVendor();
     this.selectedLocation();
     this.selectedStatus();
+    this.selectedGroup();
     this.currentPage.set(1);
   });
 

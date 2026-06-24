@@ -115,6 +115,21 @@ public class RecepcionConfiguration : IEntityTypeConfiguration<Recepcion>
     }
 }
 
+public class InventarioLocalConfiguration : IEntityTypeConfiguration<InventarioLocal>
+{
+    public void Configure(EntityTypeBuilder<InventarioLocal> b)
+    {
+        b.ToTable("InventarioLocal");
+        b.HasKey(i => i.IdInventarioLocal);
+        b.Property(i => i.IdLocal).HasMaxLength(50).IsRequired();
+        b.Property(i => i.LocalNombre).HasMaxLength(150);
+        b.Property(i => i.Cantidad).HasPrecision(10, 2);
+        b.Property(i => i.StockMinimo).HasPrecision(10, 2);
+        b.Property(i => i.FechaActualizacion).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
+        b.HasIndex(i => new { i.IdLocal, i.IdProducto }).IsUnique();
+    }
+}
+
 public class EnvioLocalConfiguration : IEntityTypeConfiguration<EnvioLocal>
 {
     public void Configure(EntityTypeBuilder<EnvioLocal> b)

@@ -24,6 +24,7 @@ public interface IApplicationDbContext
     DbSet<Auditoria> Auditorias { get; }
     DbSet<Recepcion> Recepciones { get; }
     DbSet<EnvioLocal> Envios { get; }
+    DbSet<InventarioLocal> InventariosLocales { get; }
     DbSet<CuentaContable> CuentasContables { get; }
     DbSet<TransaccionContable> TransaccionesContables { get; }
     DbSet<ImportacionCierreCaja> ImportacionesCierreCaja { get; }
